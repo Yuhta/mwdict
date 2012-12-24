@@ -1,0 +1,105 @@
+#!/usr/bin/python
+
+import argparse
+import urllib
+import webbrowser
+from HTMLParser import HTMLParser
+
+class MWParser(HTMLParser):
+    def __init__(self):
+        HTMLParser.__init__(self)
+        self.recording = 0
+        self.newline_tags = ['p', 'li']
+        self.invisible_tags = ['script']
+        self.visible = True
+        self.space_span_class = ['hw', 'vl', 'va', 'pr', 'il', 'if',
+                                 'vi', 'sn', 'ure', 'bnote', 'dre']
+        self.inspan = 0
+        self.data = []
+
+    def handle_starttag(self, tag, attrs):
+        if self.recording == 0:
+            if tag == 'div':
+                for name, value in attrs:
+                    if name == 'class' and value == 'inner':
+                        self.recording = 1
+        elif tag == 'div':
+            self.recording += 1
+        elif tag == 'span':
+            if self.inspan > 0:
+                self.inspan += 1
+            else:
+                for name, value in attrs:
+                    if name == 'class'\
+                            and value in self.space_span_class:
+                        self.inspan = 1
+        elif tag == 'br':
+            self.add_newline()
+        elif tag in self.invisible_tags:
+            self.visible = False
+
+    def handle_endtag(self, tag):
+        if self.recording > 0:
+            if tag == 'div':
+                self.recording -= 1
+                self.add_newline(2)
+            elif tag == 'span' and self.inspan > 0:
+                self.inspan -= 1
+                if self.inspan == 0:
+                    self.data.append(' ')
+                    self.inspan = False
+            elif tag == 'sup':
+                self.data.append(') ')
+            elif tag in self.invisible_tags:
+                self.visible = True
+            elif tag in self.newline_tags:
+                self.add_newline()
+
+    def handle_data(self, data):
+        if self.recording > 0 and self.visible and not data.isspace():
+            self.data.append(data)
+
+    def render(self):
+        print "".join(self.data)
+
+    def add_newline(self, num=1):
+        if self.data[-1].isspace():
+            if self.data[-1].count('\n') < num:
+                self.data[-1] = '\n' * num
+        else:
+            self.data.append('\n' * num)
+
+###########################
+# Entry point starts here #
+###########################
+
+arg_parser = argparse.ArgumentParser\
+    (description='Look up a word in the dictionary.')
+arg_parser.add_argument('word', help='the word you want to look up')
+arg_parser.add_argument('-b', '--browser', action='store_true',
+                help='use the default browser to open the dictionary')
+arg_parser.add_argument('-w', '--wiktionary', action='store_true',
+                        help='look up in Wiktionary')
+args = arg_parser.parse_args()
+
+mwurl = 'http://www.learnersdictionary.com/search/'
+wturl = 'http://en.wiktionary.org/wiki/'
+
+# Decide which dictionary to use
+if args.wiktionary:
+    url = wturl + args.word
+else:
+    url = mwurl + args.word
+
+# Whether to use browser
+if args.browser:
+    webbrowser.open(url)
+else:
+    page = urllib.urlopen(url)
+    if args.wiktionary:
+        print 'Under construction...'
+    else:
+        mw_parser = MWParser()
+        mw_parser.feed(page.read())
+        mw_parser.render()
+        mw_parser.close()
