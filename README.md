@@ -21,7 +21,7 @@ Usage
 
 ### Running Interactively in Emacs
 
-Insert the following codes into your init file.
+Insert the following code into your init file.
 
     (defun mwdict (word)
       (interactive "MWord to search: ")

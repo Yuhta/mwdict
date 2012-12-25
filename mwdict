@@ -3,66 +3,54 @@
 import argparse
 import urllib
 import webbrowser
+import re
 from HTMLParser import HTMLParser
 
 class MWParser(HTMLParser):
     def __init__(self):
         HTMLParser.__init__(self)
-        self.recording = 0
-        self.newline_tags = ['p', 'li']
-        self.invisible_tags = ['script']
-        self.visible = True
-        self.space_span_class = ['hw', 'vl', 'va', 'pr', 'il', 'if',
-                                 'vi', 'sn', 'ure', 'bnote', 'dre']
-        self.inspan = 0
+        self._recording = 0
+        self._newline_tags = ['p', 'li']
+        self._invisible_tags = ['script']
+        self._visible = True
         self.data = []
 
     def handle_starttag(self, tag, attrs):
-        if self.recording == 0:
+        if self._recording == 0:
             if tag == 'div':
                 for name, value in attrs:
                     if name == 'class' and value == 'inner':
-                        self.recording = 1
+                        self._recording = 1
         elif tag == 'div':
-            self.recording += 1
-        elif tag == 'span':
-            if self.inspan > 0:
-                self.inspan += 1
-            else:
-                for name, value in attrs:
-                    if name == 'class'\
-                            and value in self.space_span_class:
-                        self.inspan = 1
+            self._recording += 1
         elif tag == 'br':
-            self.add_newline()
-        elif tag in self.invisible_tags:
-            self.visible = False
+            self._add_newline()
+        elif tag in self._invisible_tags:
+            self._visible = False
 
     def handle_endtag(self, tag):
-        if self.recording > 0:
+        if self._recording > 0:
             if tag == 'div':
-                self.recording -= 1
-                self.add_newline(2)
-            elif tag == 'span' and self.inspan > 0:
-                self.inspan -= 1
-                if self.inspan == 0:
-                    self.data.append(' ')
-                    self.inspan = False
+                self._recording -= 1
+                self._add_newline(2)
             elif tag == 'sup':
                 self.data.append(') ')
-            elif tag in self.invisible_tags:
-                self.visible = True
-            elif tag in self.newline_tags:
-                self.add_newline()
+            elif tag in self._invisible_tags:
+                self._visible = True
+            elif tag in self._newline_tags:
+                self._add_newline()
 
     def handle_data(self, data):
-        if self.recording > 0 and self.visible and not data.isspace():
-            self.data.append(data)
+        if data.isspace():
+            if self.data and not self.data[-1][-1].isspace():
+                self.data.append(' ')
+        elif self._recording > 0 and self._visible:
+            self.data.append(re.sub(r'\s+', ' ', data))
 
     def render(self):
         print "".join(self.data)
 
-    def add_newline(self, num=1):
+    def _add_newline(self, num=1):
         if self.data[-1].isspace():
             if self.data[-1].count('\n') < num:
                 self.data[-1] = '\n' * num
