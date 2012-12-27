@@ -1,0 +1,18 @@
+#!/usr/bin/python
+
+import argparse
+import urllib
+import xml.etree.ElementTree as ElementTree
+
+MWSUGURL="http://www.learnersdictionary.com/suggestions/suggestions.php?query="
+
+arg_parser = argparse.ArgumentParser\
+    (description="Get the suggestions to complete a word.")
+arg_parser.add_argument('word', help='the word you want to complete')
+args = arg_parser.parse_args()
+
+xml = urllib.urlopen(MWSUGURL + args.word)
+tree = ElementTree.parse(xml)
+root = tree.getroot()
+for suggestion in root.findall("suggestion"):
+    print suggestion.find("title").text
