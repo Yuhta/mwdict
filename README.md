@@ -32,17 +32,51 @@ script `mwdict-comp`, who reads candidates from the output of
 
 Insert the following code into your init file.
 
-    (defun mwdict (word)
-      (interactive "MWord to search: ")
-      (shell-command (concat "mwdict '" word "'")))
+    ;;;;;;;;;;
+    ; MWDict ;
+    ;;;;;;;;;;
+     
+    (defun mwdict-completions (str pred mode)
+      (setq suggestions
+            (delete ""
+                    (split-string
+                     (shell-command-to-string (concat "mwdict-suggest '"
+                                                      str
+                                                      "'"))
+                     "\n")))
+      (cond
+       ((null mode)
+        (cond
+         ((null suggestions) 'nil)
+         ((eq (length suggestions) 1)
+          (if (member str suggestions) 't
+            (car suggestions)))
+         ((and (> (length suggestions) 1) (< (length suggestions) 15))
+          (reduce 'fill-common-string-prefix suggestions))
+         ('t str)))
+       ((eq mode 't) suggestions)
+       ((eq mode 'lambda) (member str suggestions))))
+     
+    (defun mwdict (word &optional num)
+      (interactive (list (let ((completion-ignore-case 't))
+                           (completing-read "Word to search: "
+                                            'mwdict-completions))
+                         current-prefix-arg))
+      (if (listp num) (shell-command (concat "mwdict '" word "'"))
+        (shell-command (concat "mwdict '" word
+                               "[" (number-to-string num) "]'"))))
     (global-set-key (kbd "<f5>") 'mwdict)
 
-You can change the key binding (`<F5>` in the above example) to
+You can change the key binding (`<F5>` in the above script) to
 anything you want.  After that, invoke the script by pressing the key
 bound or the command `<M-x> mwdict`.
+
+The above script allows you to use MWDict in Emacs with the minibuffer
+completion feature.  See the corresponding part of [Emacs
+manual](http://www.gnu.org/software/emacs/manual/html_node/emacs/Completion.html)
+for more information.
 
 Todo
 ----
 
-* Emacs minibuffer completion feature
 * Parser for [Wiktionary](http://en.wiktionary.org/)

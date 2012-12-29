@@ -1,6 +1,6 @@
 BIN = mwdict mwdict-suggest
 COMP_SRC = mwdict-comp
-COMP_DST = ~/.mwdict-comp
+COMP_DST = ~/.$(COMP_SRC)
 
 .PHONY: install script completion
 
@@ -12,6 +12,7 @@ script:
 	else \
 	  cp $(BIN) /usr/local/bin/; \
 	fi
+
 completion:
 	@cp $(COMP_SRC) $(COMP_DST); \
 	echo ". $(COMP_DST)" >>~/.bashrc
