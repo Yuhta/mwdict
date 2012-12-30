@@ -1,11 +1,15 @@
 #!/usr/bin/python
 
-import argparse
-import urllib
-import webbrowser
-import re
+import os
 from HTMLParser import HTMLParser
+import re
+import gzip
+import argparse
+import webbrowser
+import os.path
+import urllib
 
+MWENTRIES = os.getenv('HOME') + '/.mwdict/entries/'
 MWURL = 'http://www.learnersdictionary.com/search/'
 WTURL = 'http://en.wiktionary.org/wiki/'
 
@@ -51,7 +55,12 @@ class MWParser(HTMLParser):
             self.data.append(re.sub(r'\s+', ' ', data))
 
     def render(self):
-        print "".join(self.data)
+        print "".join(self.data),
+
+    def save_entry(self, filename):
+        if self._found_entry():
+            with gzip.open(filename, 'wb') as f:
+                f.write("".join(self.data))
 
     def _add_newline(self, num=1):
         if self.data[-1].isspace():
@@ -59,6 +68,12 @@ class MWParser(HTMLParser):
                 self.data[-1] = '\n' * num
         else:
             self.data.append('\n' * num)
+
+    def _found_entry(self):
+        return self.data[0] != ("The word you have entered is not in"
+                                + " the dictionary. Click on a spelling"
+                                + " suggestion below or try your search"
+                                + " again.")
 
 ###########################
 # Entry point starts here #
@@ -68,7 +83,7 @@ arg_parser = argparse.ArgumentParser\
     (description='Look up a word in the dictionary.')
 arg_parser.add_argument('word', help='the word you want to look up')
 arg_parser.add_argument('-b', '--browser', action='store_true',
-                help='use the default browser to open the dictionary')
+                  help='use the default browser to open the dictionary')
 arg_parser.add_argument('-w', '--wiktionary', action='store_true',
                         help='look up in Wiktionary')
 args = arg_parser.parse_args()
@@ -83,11 +98,17 @@ else:
 if args.browser:
     webbrowser.open(url)
 else:
-    page = urllib.urlopen(url)
     if args.wiktionary:
         print 'Under construction...'
     else:
-        mw_parser = MWParser()
-        mw_parser.feed(page.read())
-        mw_parser.render()
-        mw_parser.close()
+        entryfile = MWENTRIES + args.word + '.gz'
+        if (os.path.isfile(entryfile)):        # Find a local entry file
+            with gzip.open(entryfile, 'rb') as f:
+                print f.read(),
+        else:                                            # Search online
+            page = urllib.urlopen(url)
+            mw_parser = MWParser()
+            mw_parser.feed(page.read())
+            mw_parser.render()
+            mw_parser.save_entry(entryfile)
+            mw_parser.close()

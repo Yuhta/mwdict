@@ -1,10 +1,12 @@
 BIN = mwdict mwdict-suggest
-COMP_SRC = mwdict-comp
-COMP_DST = ~/.$(COMP_SRC)
+COMP = mwdict-comp
+CFG_DIR = ~/.mwdict/
+ENTR_DIR = $(CFG_DIR)entries/
+INSTALL = script completion entries
 
-.PHONY: install script completion
+.PHONY: install $(INSTALL)
 
-install: script completion
+install: $(INSTALL)
 
 script:
 	@if [ -d ~/bin ]; then \
@@ -14,5 +16,11 @@ script:
 	fi
 
 completion:
-	@cp $(COMP_SRC) $(COMP_DST); \
-	echo ". $(COMP_DST)" >>~/.bashrc
+	@if [ ! -d $(CFG_DIR) ]; then \
+	  mkdir $(CFG_DIR) && \
+	  cp $(COMP) $(CFG_DIR) && \
+	  echo ". $(CFG_DIR)$(COMP)" >>~/.bashrc; \
+	fi
+
+entries:
+	@if [ ! -d $(ENTR_DIR) ]; then mkdir $(ENTR_DIR); fi

@@ -1,20 +1,19 @@
-<!--- -*- eval: (auto-fill-mode) -*- -->
-
 MWDict
 ======
 
-MWDict is an HTML parser written in Python to convert web pages of
-online dictionaries (e.g. [Merriam-Webster Learner's
-Dictionary](http://www.learnersdictionary.com/)) into plain text
-format.
+MWDict  is an  HTML parser  written in  Python to  convert web  pages of
+online      dictionaries      (e.g.      [Merriam-Webster      Learner's
+Dictionary](http://www.learnersdictionary.com/)) into plain text format.
 
 Installation
 ------------
 
-Just run `make install` once and the Python script will be copied to
-your `$HOME/bin` or `/usr/local/bin`.  The completion script will also
-be copied to your home directory and will be sourced in your
-`.bashrc`.
+Just run  `make install` once  and the Python  script will be  copied to
+your  `$HOME/bin` or  `/usr/local/bin`.  A  directory called  `.mwdict/`
+will be created in your home  directory where the program will store the
+configuration   files  and   local  entries.    The  completion   script
+(`mwdict-comp`) will  also be  copied to  the new-created  directory and
+will be sourced in your `.bashrc`.
 
 Usage
 -----
@@ -23,18 +22,15 @@ Usage
 
 ### Bash Completion
 
-Tab completion feature has been added to MWDict in Bash.  Words can be
-completed by typing `<Tab>`, which is achieved by the completion
-script `mwdict-comp`, who reads candidates from the output of
-`mwdict-suggest`.
+Tab completion feature  has been added to MWDict in  Bash.  Words can be
+completed by typing `<Tab>`, which  is achieved by the completion script
+`mwdict-comp`, who reads candidates from the output of `mwdict-suggest`.
 
 ### Running Interactively in Emacs
 
 Insert the following code into your init file.
 
-    ;;;;;;;;;;
-    ; MWDict ;
-    ;;;;;;;;;;
+    ;;;; MWDict
      
     (defun mwdict-completions (str pred mode)
       (setq suggestions
@@ -67,12 +63,12 @@ Insert the following code into your init file.
                                "[" (number-to-string num) "]'"))))
     (global-set-key (kbd "<f5>") 'mwdict)
 
-You can change the key binding (`<F5>` in the above script) to
-anything you want.  After that, invoke the script by pressing the key
-bound or the command `<M-x> mwdict`.
+You can change the key binding  (`<F5>` in the above script) to anything
+you want.   After that, invoke the  script by pressing the  key bound or
+the command `<M-x> mwdict`.
 
-The above script allows you to use MWDict in Emacs with the minibuffer
-completion feature.  See the corresponding part of [Emacs
+The above script  allows you to use MWDict in  Emacs with the minibuffer
+completion   feature.    See   the    corresponding   part   of   [Emacs
 manual](http://www.gnu.org/software/emacs/manual/html_node/emacs/Completion.html)
 for more information.
 
