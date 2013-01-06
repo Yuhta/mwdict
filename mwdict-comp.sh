@@ -1,4 +1,3 @@
-# -*- mode: shell-script -*-
 # Bash completion support for MWDict.
 
 function _mwdict()

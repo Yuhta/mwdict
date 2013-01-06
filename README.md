@@ -1,3 +1,5 @@
+<!--- -*- mode: text -*- -->
+
 MWDict
 ======
 
@@ -9,8 +11,8 @@ Installation
 ------------
 
 Just run  `make install` once  and the Python  script will be  copied to
-your  `$HOME/bin` or  `/usr/local/bin`.  A  directory called  `.mwdict/`
-will be created in your home  directory where the program will store the
+your `$HOME/bin` or `/usr/local/bin`.  A directory called `.mwdict` will
+be  created in  your home  directory where  the program  will store  the
 configuration   files  and   local  entries.    The  completion   script
 (`mwdict-comp`) will  also be  copied to  the new-created  directory and
 will be sourced in your `.bashrc`.
@@ -28,49 +30,27 @@ completed by typing `<Tab>`, which  is achieved by the completion script
 
 ### Running Interactively in Emacs
 
-Insert the following code into your init file.
+To use  MWDict in Emacs,  copy `mwdict.el` to  where you put  Emacs Lisp
+files  (say `~/.emacs.d/elisp`).   Then insert  the following  code into
+your init file (don't forget to load the path first, if you didn't).
 
-    ;;;; MWDict
-     
-    (defun mwdict-completions (str pred mode)
-      (setq suggestions
-            (delete ""
-                    (split-string
-                     (shell-command-to-string (concat "mwdict-suggest '"
-                                                      str
-                                                      "'"))
-                     "\n")))
-      (cond
-       ((null mode)
-        (cond
-         ((null suggestions) 'nil)
-         ((eq (length suggestions) 1)
-          (if (member str suggestions) 't
-            (car suggestions)))
-         ((and (> (length suggestions) 1) (< (length suggestions) 15))
-          (reduce 'fill-common-string-prefix suggestions))
-         ('t str)))
-       ((eq mode 't) suggestions)
-       ((eq mode 'lambda) (member str suggestions))))
-     
-    (defun mwdict (word &optional num)
-      (interactive (list (let ((completion-ignore-case 't))
-                           (completing-read "Word to search: "
-                                            'mwdict-completions))
-                         current-prefix-arg))
-      (if (listp num) (shell-command (concat "mwdict '" word "'"))
-        (shell-command (concat "mwdict '" word
-                               "[" (number-to-string num) "]'"))))
+    ; MWDict
+    (autoload 'mwdict "mwdict")
     (global-set-key (kbd "<f5>") 'mwdict)
 
-You can change the key binding  (`<F5>` in the above script) to anything
-you want.   After that, invoke the  script by pressing the  key bound or
-the command `<M-x> mwdict`.
+   You  can change  the  key binding  (`<F5>` in  the  above script)  to
+anything you  want.  After that, invoke  the script by pressing  the key
+bound or the command `<M-x> mwdict`.
 
-The above script  allows you to use MWDict in  Emacs with the minibuffer
-completion   feature.    See   the    corresponding   part   of   [Emacs
-manual](http://www.gnu.org/software/emacs/manual/html_node/emacs/Completion.html)
-for more information.
+   Currently the  Emacs Lisp script  allows you  to use MWDict  in Emacs
+with the  minibuffer completion feature,  with the default value  set to
+the  word at  point.  You  can also  give the  command a  prefix numeric
+argument to select different entries of a word.
+
+Known Issue
+-----------
+
+* Words have different meanings when capitalized (e.g. catholic)
 
 Todo
 ----
