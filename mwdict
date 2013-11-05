@@ -6,8 +6,12 @@ import re
 import gzip
 import argparse
 import webbrowser
-import os.path
+from os.path import isfile
 import urllib
+from sys import exit
+from tempfile import mkdtemp
+from shutil import rmtree, copy
+from subprocess import call, check_output
 
 MWENTRIES = os.getenv('HOME') + '/.mwdict/entries/'
 MWURL = 'http://www.learnersdictionary.com/search/'
@@ -16,7 +20,8 @@ WTURL = 'http://en.wiktionary.org/wiki/'
 class MWParser(HTMLParser):
     def __init__(self):
         HTMLParser.__init__(self)
-        self._NEWLINE_TAGS = ['p', 'li']
+        self._PATTERN_SPACE = re.compile(r'\s+')
+        self._NEWLINE_TAGS = ['p', 'li', 'h4']
         self._INVISIBLE_TAGS = ['script']
         self._recording = 0
         self._visible = True
@@ -52,7 +57,7 @@ class MWParser(HTMLParser):
             if self.data and not self.data[-1][-1].isspace():
                 self.data.append(' ')
         elif self._recording > 0 and self._visible:
-            self.data.append(re.sub(r'\s+', ' ', data))
+            self.data.append(self._PATTERN_SPACE.sub(' ', data))
 
     def render(self):
         print "".join(self.data),
@@ -70,31 +75,59 @@ class MWParser(HTMLParser):
             self.data.append('\n' * num)
 
     def _found_entry(self):
-        return self.data[0] != ("The word you have entered is not in"
-                                + " the dictionary. Click on a spelling"
-                                + " suggestion below or try your search"
-                                + " again.")
+        return self.data[0] != ("The word you have entered is not in " +
+                                "the dictionary. Click on a spelling " +
+                                "suggestion below or try your search " +
+                                "again.")
 
-###########################
-# Entry point starts here #
-###########################
+def fdupes():
+    tmpdir = mkdtemp()
+
+    os.chdir(MWENTRIES)
+    for f in os.listdir(MWENTRIES):
+        if not os.path.islink(f):
+            if f[-3:] != ".gz":
+                print "non-entry file:", f
+            elif f[-6:-3] == "[1]":
+                f0 = f[:-6] + ".gz"
+                if isfile(f0):
+                    os.remove(f)
+                    os.symlink(f0, f)
+                    print f, "->", f0
+            else:
+                copy(f, tmpdir)
+
+    os.chdir(tmpdir)
+    call("gunzip *.gz", shell=True)
+    print "\n" + check_output(["fdupes", "."]),
+
+    rmtree(tmpdir)
+
+# {{{ Main
 
 arg_parser = argparse.ArgumentParser\
     (description='Look up a word in the dictionary.')
-arg_parser.add_argument('word', help='the word you want to look up')
+arg_parser.add_argument('word', nargs='?',
+                        help='the word you want to look up')
 arg_parser.add_argument('-b', '--browser', action='store_true',
                   help='use the default browser to open the dictionary')
 arg_parser.add_argument('-w', '--wiktionary', action='store_true',
                         help='look up in Wiktionary')
+arg_parser.add_argument('-f', '--fdupes', action='store_true',
+                        help='eliminate duplicate entries')
 args = arg_parser.parse_args()
 
-# Decide which dictionary to use
+# Eliminate duplicates
+if args.fdupes:
+    fdupes()
+    exit()
+
+# Decide which source to use
 if args.wiktionary:
     url = WTURL + args.word
 else:
     url = MWURL + args.word
 
-# Whether to use browser
 if args.browser:
     webbrowser.open(url)
 else:
@@ -102,13 +135,15 @@ else:
         print 'Under construction...'
     else:
         entryfile = MWENTRIES + args.word + '.gz'
-        if (os.path.isfile(entryfile)):        # Find a local entry file
+        if (isfile(entryfile)):  # Find a local entry file
             with gzip.open(entryfile, 'rb') as f:
                 print f.read(),
-        else:                                            # Search online
+        else:  # Search online
             page = urllib.urlopen(url)
             mw_parser = MWParser()
             mw_parser.feed(page.read())
             mw_parser.render()
             mw_parser.save_entry(entryfile)
             mw_parser.close()
+
+# }}}
