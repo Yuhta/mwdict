@@ -52,15 +52,17 @@ insertion."
                         'mwdict-history
                         (thing-at-point 'word)))
                      current-prefix-arg))
-  (let ((buf-name "*MWDict*")
-        (proc-name "mwdict"))
+  (let ((prg "mwdict")
+        (buf-name "*MWDict*"))
     (pop-to-buffer (get-buffer-create buf-name))
     (setq buffer-read-only nil)
     (erase-buffer)
     (setq buffer-read-only t)
-    (start-process proc-name buf-name
-                   "mwdict" (concat word (unless (listp num)
-                                           (format "[%d]" num))))
-    (set-process-filter (get-process proc-name) 'mwdict-process-filter))
+    (set-process-filter (start-process prg buf-name prg
+                                       "--plain-text" "--no-pager"
+                                       (concat word
+                                               (unless (listp num)
+                                                 (format "[%d]" num))))
+                        'mwdict-process-filter))
   (view-mode)
   (visual-line-mode))

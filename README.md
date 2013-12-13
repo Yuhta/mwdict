@@ -1,34 +1,25 @@
-<!--- -*- mode: text -*- -->
+# MWDict #
 
-MWDict
-======
+MWDict is a command line interface program to look up words in
+[Merriam-Webster Learner's
+Dictionary](http://www.learnersdictionary.com/).
 
-MWDict  is an  HTML parser  written in  Python to  convert web  pages of
-online      dictionaries      (e.g.      [Merriam-Webster      Learner's
-Dictionary](http://www.learnersdictionary.com/)) into plain text format.
+## Installation ##
 
-Installation
-------------
+Copy `mwdict` to anywhere you want, probably one of the directories in
+`$PATH`.
 
-Just run  `make install` once  and the Python  script will be  copied to
-your `$HOME/bin` or `/usr/local/bin`.  A directory called `.mwdict` will
-be  created in  your home  directory where  the program  will store  the
-configuration   files  and   local  entries.    The  completion   script
-(`mwdict-comp`) will  also be  copied to  the new-created  directory and
-will be sourced in your `.bashrc`.
+## Usage ##
 
-Usage
------
+`mwdict -h` gives you a brief help message on how to use this program.
 
-`mwdict -h` gives you a brief help message on how to use this script.
-
-### Bash Completion
+### Bash Completion ###
 
 Tab completion feature  has been added to MWDict in  Bash.  Words can be
 completed by typing `<Tab>`, which  is achieved by the completion script
 `mwdict-comp`, who reads candidates from the output of `mwdict-suggest`.
 
-### Running Interactively in Emacs
+### Running Interactively in Emacs ###
 
 To use  MWDict in Emacs,  copy `mwdict.el` to  where you put  Emacs Lisp
 files  (say `~/.emacs.d/elisp`).   Then insert  the following  code into
@@ -47,12 +38,8 @@ with the  minibuffer completion feature,  with the default value  set to
 the  word at  point.  You  can also  give the  command a  prefix numeric
 argument to select different entries of a word.
 
-Known Issue
------------
+### Cache Directory ###
 
-* Words have different meanings when capitalized (e.g. catholic)
-
-Todo
-----
-
-* Parser for [Wiktionary](http://en.wiktionary.org/)
+By default MWDict will cache the results in `~/.cache/mwdict`.  You can
+clear it up if it gets too large.  The `--no-cache` option can be used
+to prevent the program from using cache (read or write).

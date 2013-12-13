@@ -1,149 +1,256 @@
-#!/usr/bin/python
+#!/usr/bin/env ruby
 
-import os
-from HTMLParser import HTMLParser
-import re
-import gzip
-import argparse
-import webbrowser
-from os.path import isfile
-import urllib
-from sys import exit
-from tempfile import mkdtemp
-from shutil import rmtree, copy
-from subprocess import call, check_output
+require 'active_support/core_ext/hash/slice'
+require 'ansi/code'
+require 'cgi'
+require 'highline/system_extensions'
+require 'launchy'
+require 'net/http'
+require 'nokogiri'
+require 'optparse'
+require 'pager'
 
-MWENTRIES = os.getenv('HOME') + '/.mwdict/entries/'
-MWURL = 'http://www.learnersdictionary.com/search/'
-WTURL = 'http://en.wiktionary.org/wiki/'
+class MWDictEntry
+  include Pager
+  BASE_URI = 'http://www.learnersdictionary.com/definition/'
+  DEFAULT_CACHE_DIR = File.join(Dir.home, '.cache', 'mwdict')
 
-class MWParser(HTMLParser):
-    def __init__(self):
-        HTMLParser.__init__(self)
-        self._PATTERN_SPACE = re.compile(r'\s+')
-        self._NEWLINE_TAGS = ['p', 'li', 'h4']
-        self._INVISIBLE_TAGS = ['script']
-        self._recording = 0
-        self._visible = True
-        self.data = []
+  def initialize(word, options = {})
+    @word = word
+    options.each { |key, value| instance_variable_set "@#{key}", value }
+    @cache_dir ||= DEFAULT_CACHE_DIR
+  end
 
-    def handle_starttag(self, tag, attrs):
-        if self._recording == 0:
-            if tag == 'div':
-                for name, value in attrs:
-                    if name == 'class' and value == 'inner':
-                        self._recording = 1
-        elif tag == 'div':
-            self._recording += 1
-        elif tag == 'br':
-            self._add_newline()
-        elif tag in self._INVISIBLE_TAGS:
-            self._visible = False
+  def text
+    if @no_cache
+      @text ||= process search
+    elsif File.exist? cache_file
+      open(cache_file) { |f| @text ||= f.read }
+      @success = true
+    else
+      @text ||= process search
+      open(cache_file, 'w') { |f| f.write @text } if @success
+    end
+    @text
+  end
 
-    def handle_endtag(self, tag):
-        if self._recording > 0:
-            if tag == 'div':
-                self._recording -= 1
-                self._add_newline(2)
-            elif tag == 'sup':
-                self.data.append(') ')
-            elif tag in self._INVISIBLE_TAGS:
-                self._visible = True
-            elif tag in self._NEWLINE_TAGS:
-                self._add_newline()
+  def print
+    res = @plain_text ? strip_ansi(text) : text
+    if @no_pager
+      puts res
+    else
+      page
+      puts wrap(res)
+    end
+  end
 
-    def handle_data(self, data):
-        if data.isspace():
-            if self.data and not self.data[-1][-1].isspace():
-                self.data.append(' ')
-        elif self._recording > 0 and self._visible:
-            self.data.append(self._PATTERN_SPACE.sub(' ', data))
+  def browse
+    Launchy.open uri
+  end
 
-    def render(self):
-        print "".join(self.data),
+  def success?
+    @success
+  end
 
-    def save_entry(self, filename):
-        if self._found_entry():
-            with gzip.open(filename, 'wb') as f:
-                f.write("".join(self.data))
+  private
 
-    def _add_newline(self, num=1):
-        if self.data[-1].isspace():
-            if self.data[-1].count('\n') < num:
-                self.data[-1] = '\n' * num
-        else:
-            self.data.append('\n' * num)
+  def uri
+    "#{BASE_URI}#{CGI.escape @word}"
+  end
 
-    def _found_entry(self):
-        return self.data[0] != ("The word you have entered is not in " +
-                                "the dictionary. Click on a spelling " +
-                                "suggestion below or try your search " +
-                                "again.")
+  def cache_file
+    Dir.mkdir(@cache_dir, 0700) unless Dir.exist? @cache_dir
+    name = @word.dup
+    name << ".#{@show}" if @show
+    name << ".#{@start}" if @start
+    File.join(@cache_dir, name)
+  end
 
-def fdupes():
-    tmpdir = mkdtemp()
+  def search
+    unless @start.nil? || @start % 10 == 0
+      raise ArgumentError, "`start' must be multiples of 10"
+    end
+    res = Net::HTTP.post_form(URI(uri),
+                              show: @show || 0, start: @start || 0)
+    res.value
+    doc = Nokogiri::HTML extract(res.body)
+    doc = doc.at_css 'div.page div.inner' unless @success
+    doc.css('div.seo_headword').remove
+    doc.css('script').remove
+    doc
+  end
 
-    os.chdir(MWENTRIES)
-    for f in os.listdir(MWENTRIES):
-        if not os.path.islink(f):
-            if f[-3:] != ".gz":
-                print "non-entry file:", f
-            elif f[-6:-3] == "[1]":
-                f0 = f[:-6] + ".gz"
-                if isfile(f0):
-                    os.remove(f)
-                    os.symlink(f0, f)
-                    print f, "->", f0
-            else:
-                copy(f, tmpdir)
+  def extract(content)
+    if content =~ /<!-- begin entry -->(.*)<!-- end entry -->/m
+      @success = true
+      $1
+    elsif content =~ /word you have entered is not in the dictionary/
+      @success = false
+      content
+    else
+      raise "Unknown content: #{content}"
+    end
+  end
 
-    os.chdir(tmpdir)
-    call("gunzip *.gz", shell=True)
-    print "\n" + check_output(["fdupes", "."]),
+  def process(doc)
+    doc.css('sup').each { |sup| sup.content += ') ' }
+    doc.css('div.entry a').each { |a| a.content = a.content.upcase }
+    adjust_whitespaces doc
+    rich_format doc
+    doc.text.split("\n").map do |line|
+      line.strip
+    end.join("\n").strip.squeeze(' ').gsub /\n{3,}/, "\n\n"
+  end
 
-    rmtree(tmpdir)
+  def adjust_whitespaces(doc)
+    doc.css('br').each { |br| br.replace "\n" }
+    doc.css('div.new-sense-block',
+            'div.meaning').each { |node| node.replace "\n\n" }
+    doc.css('span.unicode').each do |node|
+      node.content += ' ' if node.content =~ /◊/
+    end
+    change(doc.at_css 'div.pag-count-one') { |note| "#{note}\n" }
+    change(doc.at_css 'div.headword') { |hw| "#{hw}\n" }
+    change(doc.at_css 'span.hw') { |hw| "#{hw} " }
+    doc.css('div.dro', 'div.uro').each do |node|
+      node.inner_html = "\n\n#{node.inner_html}"
+    end
+    doc.css('div.dxnl').each do |node|
+      node.inner_html = "\n#{node.inner_html}"
+    end
+    doc.css('span.dre').each { |node| node.inner_html += "\n" }
+    doc.css('ol#franklin_spelling_help li').each do |node|
+      node.inner_html += "\n"
+    end
+  end
 
-# {{{ Main
+  def rich_format(doc)
+    span_hw = doc.at_css 'span.hw'
+    unless span_hw.nil?
+      ansi(span_hw.children.find { |node| node.text? }, :bold)
+    end
+    doc.css('span.va',
+            'span.if',
+            'span.phrase',
+            'span.dre',
+            'span.sn',
+            'strong').each { |node| ansi(node, :bold) }
+    doc.css('div.entry a').each { |node| ansi(node, :underline) }
+  end
 
-arg_parser = argparse.ArgumentParser\
-    (description='Look up a word in the dictionary.')
-arg_parser.add_argument('word', nargs='?',
-                        help='the word you want to look up')
-arg_parser.add_argument('-b', '--browser', action='store_true',
-                  help='use the default browser to open the dictionary')
-arg_parser.add_argument('-w', '--wiktionary', action='store_true',
-                        help='look up in Wiktionary')
-arg_parser.add_argument('-f', '--fdupes', action='store_true',
-                        help='eliminate duplicate entries')
-args = arg_parser.parse_args()
+  def change(node, part = :inner_html)
+    assign_part = "#{part}=".to_sym
+    node.send(assign_part, yield(node.send part)) unless node.nil?
+  end
 
-# Eliminate duplicates
-if args.fdupes:
-    fdupes()
-    exit()
+  def ansi(node, *codes)
+    change(node, :content) do |content|
+      edit_sandwich(content) { |core| ANSI::Code.ansi(core, *codes) }
+    end
+  end
 
-# Decide which source to use
-if args.wiktionary:
-    url = WTURL + args.word
-else:
-    url = MWURL + args.word
+  def edit_sandwich(text)
+    text =~ /\A(\s*)(.*?)(\s*)\z/m
+    "#{$1}#{yield $2}#{$3}"
+  end
 
-if args.browser:
-    webbrowser.open(url)
-else:
-    if args.wiktionary:
-        print 'Under construction...'
-    else:
-        entryfile = MWENTRIES + args.word + '.gz'
-        if (isfile(entryfile)):  # Find a local entry file
-            with gzip.open(entryfile, 'rb') as f:
-                print f.read(),
-        else:  # Search online
-            page = urllib.urlopen(url)
-            mw_parser = MWParser()
-            mw_parser.feed(page.read())
-            mw_parser.render()
-            mw_parser.save_entry(entryfile)
-            mw_parser.close()
+  def strip_ansi(str)
+    str.gsub(ANSI::Code::PATTERN, '')
+  end
 
-# }}}
+  def wrap(text, width = HighLine::SystemExtensions.terminal_size[0])
+    res = ['']
+    text.each_line do |line|
+      line.split(/ /).each do |word|
+        if strip_ansi(res.last).size + strip_ansi(word).size < width
+          res.last << ' ' unless res.last.empty?
+          res.last << word
+        elsif res.last =~ / (\W+)\z/
+          res[-1] = "#{$`}\n"
+          res << "#{$+} #{word}"
+        else
+          res.last << "\n"
+          res << word
+        end
+        res << '' if res.last.end_with? "\n"
+      end
+    end
+    repair_ansi res.join
+  end
+
+  def repair_ansi(str)
+    str.gsub(/(\e\[[1-9]\d*m)([^\e]*)(\n)([^\e]*)(\e\[0m)/,
+             '\1\2\5\3\1\4\5')
+  end
+end
+
+class Arguments < OptionParser
+  attr_reader :word, :options
+
+  def initialize(argv = ARGV)
+    super()
+    self.banner << ' word [show [start]]'
+    separator "\nOptions:"
+    @options = {}
+    parse! argv
+    get_arguments argv
+  end
+
+  private
+
+  def parse!(argv)
+    private_methods(false).each do |func|
+      send func if func =~ /\Aparse_/
+    end
+    super
+  end
+
+  def parse_browser
+    on '-b', '--browser', 'Open the result in the default browser' do
+      @options[:browser] = true
+    end
+  end
+
+  def parse_plain_text
+    on '--plain-text', 'Output plain text instead of rich format' do
+      @options[:plain_text] = true
+    end
+  end
+
+  def parse_no_pager
+    on '--no-pager', 'Do not pipe the output to pager' do
+      @options[:no_pager] = true
+    end
+  end
+
+  def parse_no_cache
+    on '--no-cache', 'Do not use cache' do
+      @options[:no_cache] = true
+    end
+  end
+
+  def parse_help
+    on_tail '-h', '--help', 'Show this message and exit' do
+      puts self
+      exit
+    end
+  end
+
+  def get_arguments(argv)
+    raise ArgumentError, 'No word specified' if argv.empty?
+    @word = argv.shift.downcase
+    @options[:show] = Integer argv.shift if argv.any?
+    @options[:start] = Integer argv.shift if argv.any?
+  end
+end
+
+if __FILE__ == $0
+  args = Arguments.new
+  entry = MWDictEntry.new(args.word, args.options)
+  if args.options[:browser]
+    entry.browse
+  else
+    entry.print
+    exit -1 unless entry.success?
+  end
+end
