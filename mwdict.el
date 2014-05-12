@@ -1,6 +1,11 @@
-(defvar mwdict-history nil)
+(if (and (<= emacs-major-version 24) (< emacs-minor-version 3))
+    (progn
+      (require 'cl)
+      (defalias 'cl-reduce 'reduce))
+  (require 'cl-lib))
+(require 'ansi-color)
 
-(require 'cl)
+(defvar mwdict-history nil)
 
 (defun mwdict-completions (str pred mode)
   (let ((suggestions
@@ -20,7 +25,7 @@
             t
           (car suggestions)))
        ((and (> (length suggestions) 1) (< (length suggestions) 15))
-        (reduce 'fill-common-string-prefix suggestions))
+        (cl-reduce 'fill-common-string-prefix suggestions))
        (t
         str)))
      ((eq mode t)
@@ -37,7 +42,7 @@ insertion."
         (let ((inhibit-read-only t))
           (set-buffer (process-buffer proc))
           (goto-char (process-mark proc))
-          (insert string)
+          (insert (ansi-color-apply string))
           (set-marker (process-mark proc) (point))
           (goto-char (point-min)))
       (set-buffer old-buffer))))
@@ -55,11 +60,11 @@ insertion."
   (let ((prg "mwdict")
         (buf-name "*MWDict*"))
     (pop-to-buffer (get-buffer-create buf-name))
+    (font-lock-mode 1)
     (setq buffer-read-only nil)
     (erase-buffer)
     (setq buffer-read-only t)
     (set-process-filter (start-process prg buf-name prg
-                                       "--plain-text" "--no-pager"
                                        (concat word
                                                (unless (listp num)
                                                  (format "[%d]" num))))
