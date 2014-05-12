@@ -32,10 +32,10 @@ To use  MWDict in Emacs,  copy `mwdict.el` to  where you put  Emacs Lisp
 files  (say `~/.emacs.d/elisp`).   Then insert  the following  code into
 your init file (don't forget to load the path first, if you didn't).
 
-    ```elisp
-    (autoload 'mwdict "mwdict" nil 'interactive)
-    (global-set-key (kbd "<f5>") 'mwdict)
-    ```
+```elisp
+(autoload 'mwdict "mwdict" nil 'interactive)
+(global-set-key (kbd "<f5>") 'mwdict)
+```
 
    You  can change  the  key binding  (`<F5>` in  the  above script)  to
 anything you  want.  After that, invoke  the script by pressing  the key
