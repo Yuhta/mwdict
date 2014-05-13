@@ -380,7 +380,7 @@ module MwDict
         when 'sl'
           @sls << i(e.text)
         when 'gram'
-          @gram = e.text
+          @gram = a2cd(e.text)
         when 'sn'
           if s.sn
             @senses << s
@@ -493,6 +493,7 @@ module MwDict
 
     def initialize(uro)
       @ins = []
+      @sls = []
       uro.elements.each do |e|
         case e.local_name
         when 'ure'
@@ -501,10 +502,14 @@ module MwDict
           @pr = Pronunciation.new(e)
         when 'fl'
           @fl = i(e.text)
+        when 'lb'
+          @lb = i(e.text)
         when 'in'
           @ins << Inflection.new(e)
         when 'gram'
           @gram = e.text
+        when 'sl'
+          @sls << i(e.text)
         when 'utxt'
           @utxt = DefiningText.new(e)
         when 'sound'
@@ -517,13 +522,14 @@ module MwDict
 
     def to_s
       s = @ure
-      s << " #{@pr}" if @pr
-      s << " #{@fl}" if @fl
-      s << ', ' << @ins.join('; ') unless @ins.empty?
-      if @gram
-        s << ',' if @ins.empty?
-        s << " [#{@gram}]"
-      end
+      s << " #{@pr}"   if @pr
+      s << " #{@fl}"   if @fl
+      s << ', ' << @lb if @lb
+      s1 = ''
+      s1 << @ins.join('; ') unless @ins.empty?
+      s1 << " [#{@gram}]"   if @gram
+      s1 << @sls.join(', ') unless @sls.empty?
+      s << ', ' << s1       unless s1.empty?
       s << "#{@utxt}" if @utxt
       s
     end
