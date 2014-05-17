@@ -46,7 +46,7 @@ class Arguments < OptionParser
     parse! argv
 
     raise ArgumentError, 'no word specified' if argv.empty?
-    @word = argv.shift.downcase
+    @word = argv.shift.strip.downcase
   end
 end
 
@@ -194,6 +194,7 @@ module MwDict
         case e.local_name
         when 'it'     then i(e.text)
         when 'phrase' then b(e.text)
+        when 'sc'     then e.text.upcase
         else if block_given?
                yield e
              else
@@ -267,6 +268,8 @@ module MwDict
           @others << UndefinedRunOn.new(e)
         when 'dxnl'
           @others << DirectionalCrossRef.new(e)
+        when 'syns'
+          @others << Synonyms.new(e)
         when 'sound'
           # Ignored
         else
@@ -461,6 +464,8 @@ module MwDict
           @dre = b(a2cd(e.text))
         when 'pr'
           @pr = Pronunciation.new(e)
+        when 'rsl'
+          @rsl = "(#{e.text})"
         when 'gram'
           @gram = e.text
         when 'vr'
@@ -480,6 +485,7 @@ module MwDict
     def to_s
       s = @dre
       s << " #{@pr}"     if @pr
+      s << " #{@rsl}"    if @rsl
       s << " [#{@gram}]" if @gram
       s << " #{@vr}"     if @vr
       s << "\n#{@def}"   if @def
@@ -555,6 +561,19 @@ module MwDict
     end
   end
 
+  class VerbalIllustraion
+    include MwDict
+    include WithText
+
+    def initialize(vi)
+      @contents = parse_basic_markups(vi)
+    end
+
+    def to_s
+      "\n* " + @contents.join
+    end
+  end
+
   class DefiningText
     include MwDict
     include WithText
@@ -586,19 +605,6 @@ module MwDict
         else
           unknown_tag x
         end
-      end
-    end
-
-    class VerbalIllustraion
-      include MwDict
-      include WithText
-
-      def initialize(vi)
-        @contents = parse_basic_markups(vi)
-      end
-
-      def to_s
-        "\n* " + @contents.join
       end
     end
 
@@ -670,6 +676,24 @@ module MwDict
 
     def to_s
       "\n#{EM_DASH} " + @contents.join
+    end
+  end
+
+  class Synonyms
+    include MwDict
+    include WithText
+
+    def initialize(syns)
+      @contents = parse_basic_markups(syns) do |e|
+        case e.local_name
+        when 'vi' then VerbalIllustraion.new(e)
+        else unknown_tag e
+        end
+      end
+    end
+
+    def to_s
+      @contents.join
     end
   end
 end
