@@ -393,7 +393,7 @@ module MwDict
         when 'bnote'
           s.bnote = b(i(e.text))
         when 'sgram'
-          s.sgram = e.text
+          s.sgram = a2cd(e.text)
         when 'ssl'
           s.ssls << i(e.text)
         when 'sin'
