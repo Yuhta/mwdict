@@ -270,7 +270,7 @@ module MwDict
           @others << DirectionalCrossRef.new(e)
         when 'syns'
           @others << Synonyms.new(e)
-        when 'sound'
+        when 'sound', 'art'
           # Ignored
         else
           unknown_tag e
