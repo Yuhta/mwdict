@@ -125,10 +125,10 @@ module MwDict
     case k
     when Integer
       case k
-      when 0     then "\u2070"
-      when 1     then "\u00B9"
-      when 2, 3  then [(0x00B0 + k)].pack('U')
-      when 4...9 then [(0x2070 + k)].pack('U')
+      when 0    then "\u2070"
+      when 1    then "\u00B9"
+      when 2, 3 then [(0x00B0 + k)].pack('U')
+      when 4..9 then [(0x2070 + k)].pack('U')
       else sup(k.to_s)
       end
     when String
@@ -238,6 +238,7 @@ module MwDict
     include MwDict
 
     def initialize(entry)
+      @ahws   = []
       @ins    = []
       @others = []
       entry.elements.each do |e|
@@ -246,8 +247,12 @@ module MwDict
           @hw = b(a2cd(e.text))
           @hw = u(@hw)                           if e.attribute('highlight')
           @hw = sup(e.attribute('hindex')) + @hw if e.attribute('hindex')
+        when 'hsl'
+          @hsl = i("(#{e.text})")
         when 'pr', 'altpr'
           @pr = Pronunciation.new(e)
+        when 'ahw'
+          @ahws << b(a2cd(e.text))
         when 'fl'
           @fl = i(e.text)
         when 'lb'
@@ -280,9 +285,11 @@ module MwDict
 
     def to_s
       s = @hw
+      s << " #{@hsl}"              if @hsl
       s << " #{@pr}"               if @pr
-      s << "\n#{@vr}"              if @vr
       s << " #{@fl}"               if @fl
+      s << @ahws.map { |w| ", #{w}" }.join unless @ahws.empty?
+      s << "\n#{@vr}"              if @vr
       s << "\n#{@lb}"              if @lb
       s << "\n" << @ins.join('; ') unless @ins.empty?
       s << @others.map do |x|
@@ -512,6 +519,8 @@ module MwDict
           @lb = i(e.text)
         when 'in'
           @ins << Inflection.new(e)
+        when 'vr'
+          @vr = Variant.new(e)
         when 'gram'
           @gram = e.text
         when 'sl'
@@ -529,6 +538,7 @@ module MwDict
     def to_s
       s = @ure
       s << " #{@pr}"   if @pr
+      s << " #{@vr}"   if @vr
       s << " #{@fl}"   if @fl
       s << ', ' << @lb if @lb
       ss = []
