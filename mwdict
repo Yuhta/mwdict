@@ -114,6 +114,7 @@ module MwDict
 
   CENTERED_DOT = "\u00B7"
   EM_DASH      = "\u2014"
+  DIAMOND      = "\u25CA"
 
   # Asterisks to centered dots
   def a2cd(s)
@@ -415,6 +416,10 @@ module MwDict
           s.dts << "\n" << i(e.text)
         when 'dt'
           s.dts << DefiningText.new(e)
+        when 'usage'
+          s.usage = Synonyms.new(e)
+        when 'snotebox'
+          s.snotebox = Synonyms.new(e)
         else
           unknown_tag e
         end
@@ -425,7 +430,8 @@ module MwDict
     class Sense
       include MwDict
       attr_accessor(:bnote, :ssls, :sins, :slb,
-                    :sn, :svr, :phrasev, :sgram, :dts)
+                    :sn, :svr, :phrasev, :sgram, :dts,
+                    :usage, :snotebox)
 
       def initialize
         @ssls = []
@@ -445,7 +451,10 @@ module MwDict
         s << "#{@svr} "           if @svr
         s << "#{@phrasev} "       if @phrasev
         s << "[#{@sgram}] "       if @sgram
-        s + @dts.join
+        s << @dts.join
+        s << "\n" << b('Usage') << " #{@usage}" if @usage
+        s << "\n#{DIAMOND} #{@snotebox}"        if @snotebox
+        s
       end
     end
 
