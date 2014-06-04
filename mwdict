@@ -336,7 +336,7 @@ module MwDict
           i(e.text)
         when 'if'
           b(a2cd(e.text))
-        when 'pr'
+        when 'pr', 'altpr'
           "/#{e.text}/"
         when 'sound'
           # Ignored
