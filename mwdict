@@ -490,6 +490,8 @@ module MwDict
           @dx = DirectionalCrossRef.new(e)
         when 'def'
           @def = Definition.new(e)
+        when 'dt'
+          @dt = DefiningText.new(e)
         when 'sound'
           # Ignored
         else
@@ -505,6 +507,7 @@ module MwDict
       s << " [#{@gram}]" if @gram
       s << " #{@vr}"     if @vr
       s << "\n#{@def}"   if @def
+      s << @dt.to_s      if @dt
       s << @dx.to_s      if @dx
       s
     end
