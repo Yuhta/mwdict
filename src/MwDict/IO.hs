@@ -1,5 +1,4 @@
 {-# LANGUAGE Arrows #-}
-{-# OPTIONS -Wall #-}
 module MwDict.IO (loadXml, Product (..)) where
 
 import Control.Exception

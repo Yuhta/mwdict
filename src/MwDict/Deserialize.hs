@@ -1,4 +1,4 @@
-{-# OPTIONS -Wall -XTupleSections -fno-warn-orphans #-}
+{-# OPTIONS -XTupleSections -fno-warn-orphans #-}
 module MwDict.Deserialize () where
 
 import Control.Applicative ((<|>))

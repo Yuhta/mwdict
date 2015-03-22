@@ -1,4 +1,3 @@
-{-# OPTIONS -Wall #-}
 module MwDict.Data where
 
 newtype EntryList =
