@@ -8,198 +8,132 @@ require 'rexml/document'
 require 'launchy'
 require 'term/ansicolor'
 
-class Arguments < OptionParser
-  attr_reader :word, :ref, :browser, :options
+require 'pp'
 
-  def initialize(argv = ARGV)
-    super()
-    self.banner << ' word'
-    separator "\nOptions:"
-    @options = {}
+class MwDict
+  DEFAULT_OPTIONS = { color: true, strict: true }
 
-    on_tail '-h', '--help', 'Show this message and exit' do
-      puts self
-      exit
-    end
-
-    on '-b', '--browser', 'Search the word in the default browser' do
-      @browser = true
-    end
-
-    on '--no-cache', 'Do not use cache' do
-      @options[:no_cache] = true
-    end
-
-    on '--no-color', 'Do not output ANSI color escape code' do
-      MwDict.color = false
-    end
-
-    on '--non-strict', 'Do not raise error in many cases' do
-      MwDict.strict = false
-    end
-
-    on('-r', '--reference REFERENCE',
-       'Reference to use, default to learners') do |ref|
-      @ref = ref.downcase.to_sym
-    end
-
-    parse! argv
-
-    raise ArgumentError, 'no word specified' if argv.empty?
-    @word = argv.shift.strip.downcase
-  end
-end
-
-class Search
-  def initialize(word, ref, options = {})
-    @word, @ref, @options = word, ref, options
+  def initialize(ref, word, options = {})
+    @ref, @word, @options = ref, word, DEFAULT_OPTIONS.merge(options)
   end
 
-  def url
-    env = "MWDICT_API_KEY_#{@ref.upcase}"
-    "http://www.dictionaryapi.com/api/v1/references" +
-      "/#{@ref}/xml/#{URI.escape @word}?key=" +
-      (ENV[env] || raise(RuntimeError, "#{env} undefined"))
+  def entry_list
+    EntryList.new(xml.root, @options)
   end
 
-  def path
-    xdg    = ENV['XDG_CACHE_HOME']    || File.join(ENV['HOME'], '.cache')
+  def xml
+    path = local_path
+    if @options[:no_cache]
+      REXML::Document.new(Net::HTTP.get remote_uri)
+    elsif File.exist? path
+      open(path) { |f| REXML::Document.new f.read }
+    else
+      str   = Net::HTTP.get remote_uri
+      doc   = REXML::Document.new str
+      found = doc.root.elements.any? { |e| e.local_name != 'suggestion' }
+      open(path, 'w') { |f| f.write str } if found
+      doc
+    end
+  end
+
+  def remote_uri
+    key_env = "MWDICT_API_KEY_#{@ref.upcase}"
+    key = ENV[key_env] || raise("#{key_env} undefined")
+    root = "http://www.dictionaryapi.com/api/v1/references"
+    URI "#{root}/#{@ref}/xml/#{URI.escape @word}?key=#{key}"
+  end
+
+  def local_path
+    xdg    = ENV['XDG_CACHE_HOME'] || File.join(ENV['HOME'], '.cache')
     mwdict = ENV['MWDICT_CACHE_HOME'] || File.join(xdg, 'mwdict')
     dir    = File.join(mwdict, @ref.to_s)
     FileUtils.mkdir_p dir unless Dir.exist? dir
     File.join(dir, "#{@word}.xml")
   end
 
-  def xml
-    if @options[:no_cache]
-      Net::HTTP.get(URI url)
-    elsif File.exist? path
-      open(path) { |f| f.read }
-    else
-      s = Net::HTTP.get(URI url)
-      found = REXML::Document.new(s).root.elements.any? do |e|
-        e.local_name != 'suggestion'
-      end
-      open(path, 'w') { |f| f.write s } if found
-      s
-    end
-  end
-
   def browse
-    Launchy.open case @ref
-                 when :learners
-                   'http://www.learnersdictionary.com/definition/' + @word
-                 else
-                   raise ArgumentError, "unknown reference: #{@ref}"
-                 end
-  end
-end
-
-module MwDict
-  include Term::ANSIColor
-
-  @color  = true
-  @strict = true
-  class << self
-    attr_accessor :color, :strict
-  end
-
-  def unknown_tag(elt)
-    if MwDict.strict
-      raise ArgumentError, "unknown tag: #{elt}"
-    else
-      elt
-    end
-  end
-
-  CENTERED_DOT = "\u00B7"
-  EM_DASH      = "\u2014"
-  DIAMOND      = "\u25CA"
-
-  # Asterisks to centered dots
-  def a2cd(s)
-    s.gsub(/\*/, CENTERED_DOT)
-  end
-
-  # Superscript
-  def sup(k)
-    case k
-    when Integer
-      case k
-      when 0    then "\u2070"
-      when 1    then "\u00B9"
-      when 2, 3 then [(0x00B0 + k)].pack('U')
-      when 4..9 then [(0x2070 + k)].pack('U')
-      else sup(k.to_s)
-      end
-    when String
-      raise(ArgumentError, k) unless k =~ /\A[[:digit:]]+\z/
-      r = ''
-      k.each_char { |c| r << sup(c.to_i) }
-      r
-    else
-      sup k.to_s
-    end
-  end
-
-  # Bold
-  def b(s)
-    MwDict.color ? bold { s } : s
-  end
-
-  # Italic
-  def i(s)
-    MwDict.color ? italic { s } : s
-  end
-
-  # Underline
-  def u(s)
-    MwDict.color ? underline { s } : s
-  end
-
-  def interpose(parent, tag, separator=', ')
-    last = nil
-    p = parent.deep_clone
-    p.each do |x|
-      case x
-      when REXML::Element
-        if x.local_name == tag
-          case last
-          when REXML::Element then x.text = separator + x.text
-          when REXML::Text    then last.value = separator
+    uri = case @ref
+          when :learners
+            "http://www.learnersdictionary.com/definition/#{@word}"
+          else
+            raise ArgumentError, "unknown reference: #{@ref}"
           end
-          last = x
-        else
-          last = nil
-        end
-      when REXML::Text
-        last = x if last && x.value =~ /\A\s*\z/
-      end
-    end
-    p
+    Launchy.open uri
   end
 
-  module WithText
-    def parse(children)
-      children.map do |x|
+  private
+
+  module WithOptions
+    def unknown_element(e)
+      if @options[:strict]
+        raise "unknown element: #{e}"
+      else
+        e
+      end
+    end
+
+    CENTERED_DOT = "\u00B7"
+    EM_DASH      = "\u2014"
+    DIAMOND      = "\u25CA"
+
+    # Asterisks to centered dots
+    def a2cd(s)
+      s.gsub(/\*/, CENTERED_DOT)
+    end
+
+    # Superscript
+    def sup(k)
+      case k
+      when Integer
+        case k
+        when 0    then "\u2070"
+        when 1    then "\u00B9"
+        when 2, 3 then [(0x00B0 + k)].pack('U')
+        when 4..9 then [(0x2070 + k)].pack('U')
+        else sup(k.to_s)
+        end
+      when String
+        raise(ArgumentError, k) unless k =~ /\A[[:digit:]]+\z/
+        r = ''
+        k.each_char { |c| r << sup(c.to_i) }
+        r
+      else
+        sup k.to_s
+      end
+    end
+
+    def bold(s)
+      @options[:color] ? Term::ANSIColor::bold { s } : s
+    end
+
+    def italic(s)
+      @options[:color] ? Term::ANSIColor::italic { s } : s
+    end
+
+    def underline(s)
+      @options[:color] ? Term::ANSIColor::underline { s } : s
+    end
+
+    def parse(e)
+      e.map do |x|
         case x
-        when REXML::Element then yield x
         when REXML::Text    then x
+        when REXML::Element then yield x
         else raise ArgumentError, "unknown child: #{x}"
         end
       end
     end
 
-    def parse_basic_markups(children)
-      parse(children) do |e|
-        case e.local_name
-        when 'it'     then i(e.text)
-        when 'phrase' then b(e.text)
-        when 'sc'     then e.text.upcase
+    def parse_markup(e)
+      parse(e) do |x|
+        case x.local_name
+        when 'it'     then italic(x.text)
+        when 'phrase' then bold(x.text)
+        when 'sc'     then x.text.upcase
         else if block_given?
-               yield e
+               yield x
              else
-               unknown_tag e
+               unknown_element x
              end
         end
       end
@@ -207,27 +141,26 @@ module MwDict
   end
 
   class EntryList
-    include MwDict
-
-    def initialize(elt)
+    def initialize(element, options)
       @entries     = []
       @suggestions = []
-      elt.elements.each do |e|
+      element.elements.each do |e|
         case e.local_name
-        when 'entry'      then @entries << Entry.new(e)
+        when 'entry'      then @entries << Entry.new(e, options)
         when 'suggestion' then @suggestions << e.text
-        else unknown_tag e
+        else unknown_element e
         end
       end
       unless @entries.empty? || @suggestions.empty?
-        raise ArgumentError, "cannot have both entries and suggestions"
+        raise 'cannot have both entries and suggestions'
       end
     end
 
     def to_s
-      if @entries.empty?
-        ["The word you have entered is not in the dictionary.",
-         "Use a spelling suggestion below or try your search again.\n",
+      if !@suggestions.empty?
+        ['The word you have entered is not in the dictionary.',
+         'Use a spelling suggestion below or try your search again.',
+         '',
          @suggestions.map { |s| ' ' * 4 + s }].join("\n")
       else
         @entries.join("\n\f\n")
@@ -236,496 +169,199 @@ module MwDict
   end
 
   class Entry
-    include MwDict
+    include WithOptions
 
-    def initialize(entry)
-      @ahws   = []
-      @ins    = []
-      @others = []
-      entry.elements.each do |e|
+    def initialize(entry, options)
+      @options = options
+      @ins = []
+      enum = entry.elements.to_enum
+      loop do
+        e = enum.next
         case e.local_name
         when 'hw'
-          @hw = b(a2cd(e.text))
-          @hw = u(@hw)                           if e.attribute('highlight')
-          @hw = sup(e.attribute('hindex')) + @hw if e.attribute('hindex')
-        when 'hsl'
-          @hsl = i("(#{e.text})")
-        when 'pr', 'altpr'
-          @pr = Pronunciation.new(e)
-        when 'ahw'
-          @ahws << b(a2cd(e.text))
+          hw = HeadWord.new(e.text,
+                            e.attributes['highlight'],
+                            e.attributes['hindex'],
+                            options)
+          hsl = nil
+          pr  = nil
+          loop do
+            ee = enum.peek
+            case ee.local_name
+            when 'hsl'         then hsl = ee.text
+            when 'pr', 'altpr' then pr  = Pronunciation.new(ee, options)
+            when 'sound' # Ignored
+            else break
+            end
+            enum.next
+          end
+          @hw = HeadWordGroup.new(hw, hsl, pr, options)
         when 'fl'
-          @fl = i(e.text)
-        when 'lb'
-          @lb = i(e.text)
+          @fl = e.text
         when 'in'
-          @ins << Inflection.new(e)
-        when 'vr'
-          @vr = Variant.new(e)
-        when 'cx'
-          @others << CrossEntry.new(e)
-        when 'dx'
-          @others << DirectionalCrossRef.new(e)
+          @ins << Inflection.new(e, options)
         when 'def'
-          @others << Definition.new(e)
-        when 'dro'
-          @others << DefinedRunOn.new(e)
-        when 'uro'
-          @others << UndefinedRunOn.new(e)
-        when 'dxnl'
-          @others << DirectionalCrossRef.new(e)
-        when 'syns'
-          @others << Synonyms.new(e)
-        when 'sound', 'art'
+          @def = Definition.new(e, options)
+        when 'art'
           # Ignored
         else
-          unknown_tag e
+          unknown_element e
         end
       end
     end
 
     def to_s
-      s = @hw
-      s << " #{@hsl}"              if @hsl
-      s << " #{@pr}"               if @pr
-      s << " #{@fl}"               if @fl
-      s << @ahws.map { |w| ", #{w}" }.join unless @ahws.empty?
-      s << "\n#{@vr}"              if @vr
-      s << "\n#{@lb}"              if @lb
+      s = @hw.to_s
+      s << " #{italic @fl}"        if @fl
       s << "\n" << @ins.join('; ') unless @ins.empty?
-      s << @others.map do |x|
-        case x
-        when DirectionalCrossRef
-          "\n#{x}"
-        else
-          "\n\n#{x}"
-        end
-      end.join
+      s << "\n#{@def}"             if @def
+      s
+    end
+  end
+
+  class HeadWordGroup
+    include WithOptions
+
+    def initialize(hw, hsl, pr, options)
+      @options, @hw, @hsl, @pr = options, hw, hsl, pr
+    end
+
+    def to_s
+      s = @hw.to_s
+      s << " #{italic(@hsl)}" unless @hsl.nil?
+      s << " #{@pr}"          unless @pr.nil?
+      s
+    end
+  end
+
+  class HeadWord
+    include WithOptions
+
+    def initialize(text, highlight, hindex, options)
+      @options = options
+      @text, @highlight, @hindex = text, highlight, hindex
+    end
+
+    def to_s
+      s = bold(a2cd(@text))
+      s = underline(s)     if @highlight == "yes"
+      s = sup(@hindex) + s if @hindex
       s
     end
   end
 
   class Pronunciation
-    include WithText
+    include WithOptions
 
-    def initialize(pr)
-      @contents = pr.map do |x|
-        case x
-        when REXML::Text
-          "/#{x.to_s.strip.chomp(',')}/"
-        when REXML::Element
-          parse_basic_markups(x)
-        else
-          raise ArgumentError, "unknown child: #{x}"
-        end
-      end
+    def initialize(pr, options)
+      @options = options
+      @contents = parse_markup(pr)
     end
 
     def to_s
-      @contents.join(' ')
+      "/#{@contents.join}/"
     end
   end
 
   class Inflection
-    include MwDict
+    include WithOptions
 
-    def initialize(inf)
-      @contents = inf.elements.map do |e|
+    def initialize(inf, options)
+      @options = options
+      @contents = inf.elements.flat_map do |e|
         case e.local_name
-        when 'il'
-          i(e.text)
-        when 'if'
-          b(a2cd(e.text))
-        when 'pr', 'altpr'
-          "/#{e.text}/"
-        when 'sound'
-          # Ignored
-        else
-          unknown_tag e
-        end
-      end.select { |x| x }
-    end
-
-    def to_s
-      @contents.join(' ')
-    end
-  end
-
-  class CrossEntry
-    include MwDict
-    include WithText
-
-    def initialize(cx)
-      @contents = parse(cx) do |e|
-        case e.local_name
-        when 'cl'
-          i(e.text)
-        when 'ct'
-          e.map do |x|
-            case x
-            when REXML::Text    then x.to_s.upcase
-            when REXML::Element then x.text
-            else raise ArgumentError, "unknown child: #{x}"
-            end
-          end
-        else
-          unknown_tag e
+        when 'il'          then italic(e.text)
+        when 'if'          then bold(a2cd(e.text))
+        when 'pr', 'altpr' then Pronunciation.new(e)
+        when 'sound'       then []
+        else unknown_element e
         end
       end
     end
 
     def to_s
-      @contents.join
+      @contents.join ' '
     end
   end
 
   class Definition
-    include MwDict
+    include WithOptions
 
-    def initialize(defi)
-      @sls    = []
-      @senses = []
-      s = Sense.new
-      defi.elements.each do |e|
+    def initialize(defi, options)
+      @options  = options
+      @sls      = []
+      @senses   = []
+      before_dt = []
+      enum = defi.elements.to_enum
+      loop do
+        e = enum.next
         case e.local_name
-        when 'sl'
-          @sls << i(e.text)
         when 'gram'
-          @gram = a2cd(e.text)
+          @gram = e.text
+        when 'sl'
+          @sls << e.text
         when 'sn'
-          if s.sn
-            @senses << s
-            s = Sense.new
-          end
-          s.sn = b(e.text)
-        when 'bnote'
-          s.bnote = b(i(e.text))
-        when 'sgram'
-          s.sgram = a2cd(e.text)
-        when 'ssl'
-          s.ssls << i(e.text)
-        when 'sin'
-          s.sins << Inflection.new(e)
-        when 'slb'
-          s.slb = i(e.text)
-        when 'svr'
-          s.svr = Variant.new(e)
-        when 'phrasev'
-          s.phrasev = Variant.new(e)
-        when 'sd'
-          s.dts << "\n" << i(e.text)
-        when 'dt'
-          s.dts << DefiningText.new(e)
-        when 'usage'
-          s.usage = Synonyms.new(e)
-        when 'snotebox'
-          s.snotebox = Synonyms.new(e)
+          before_dt << bold(e.text)
+        # TODO
         else
-          unknown_tag e
+          unknown_element e
         end
       end
-      @senses << s
-    end
-
-    class Sense
-      include MwDict
-      attr_accessor(:bnote, :ssls, :sins, :slb,
-                    :sn, :svr, :phrasev, :sgram, :dts,
-                    :usage, :snotebox)
-
-      def initialize
-        @ssls = []
-        @sins = []
-        @dts  = []
-      end
-
-      def to_s
-        xs = []
-        xs << @bnote           if @bnote
-        xs << @ssls.join(', ') unless @ssls.empty?
-        xs << @sins.join('; ') unless @sins.empty?
-        s = ''
-        s << xs.join(' ') << "\n" unless xs.empty?
-        s << @slb << "\n"         if @slb
-        s << @sn << ' '           if @sn
-        s << "#{@svr} "           if @svr
-        s << "#{@phrasev} "       if @phrasev
-        s << "[#{@sgram}] "       if @sgram
-        s << @dts.join
-        s << "\n" << b('Usage') << " #{@usage}" if @usage
-        s << "\n#{DIAMOND} #{@snotebox}"        if @snotebox
-        s
-      end
-    end
-
-    def to_s
-      s = ''
-      s << "[#{@gram}]" if @gram
-      unless @sls.empty?
-        s << ' ' unless s.empty?
-        s << @sls.join(', ')
-      end
-      s << "\n" unless s.empty?
-      s + @senses.join("\n\n")
-    end
-  end
-
-  class DefinedRunOn
-    include MwDict
-
-    def initialize(dro)
-      dro.elements.each do |e|
-        case e.local_name
-        when 'dre'
-          @dre = b(a2cd(e.text))
-        when 'pr'
-          @pr = Pronunciation.new(e)
-        when 'rsl'
-          @rsl = "(#{e.text})"
-        when 'gram'
-          @gram = e.text
-        when 'vr'
-          @vr = Variant.new(e)
-        when 'dx'
-          @dx = DirectionalCrossRef.new(e)
-        when 'def'
-          @def = Definition.new(e)
-        when 'dt'
-          @dt = DefiningText.new(e)
-        when 'sound'
-          # Ignored
-        else
-          unknown_tag e
-        end
-      end
-    end
-
-    def to_s
-      s = @dre
-      s << " #{@pr}"     if @pr
-      s << " #{@rsl}"    if @rsl
-      s << " [#{@gram}]" if @gram
-      s << " #{@vr}"     if @vr
-      s << "\n#{@def}"   if @def
-      s << @dt.to_s      if @dt
-      s << @dx.to_s      if @dx
-      s
-    end
-  end
-
-  class UndefinedRunOn
-    include MwDict
-
-    def initialize(uro)
-      @ins = []
-      @sls = []
-      uro.elements.each do |e|
-        case e.local_name
-        when 'ure'
-          @ure = "#{EM_DASH} " + b(a2cd(e.text))
-        when 'pr'
-          @pr = Pronunciation.new(e)
-        when 'fl'
-          @fl = i(e.text)
-        when 'lb'
-          @lb = i(e.text)
-        when 'in'
-          @ins << Inflection.new(e)
-        when 'vr'
-          @vr = Variant.new(e)
-        when 'gram'
-          @gram = e.text
-        when 'sl'
-          @sls << i(e.text)
-        when 'utxt'
-          @utxt = DefiningText.new(e)
-        when 'sound'
-          # Ignored
-        else
-          unknown_tag e
-        end
-      end
-    end
-
-    def to_s
-      s = @ure
-      s << " #{@pr}"   if @pr
-      s << " #{@vr}"   if @vr
-      s << " #{@fl}"   if @fl
-      s << ', ' << @lb if @lb
-      ss = []
-      ss << @ins.join('; ') unless @ins.empty?
-      ss << "[#{@gram}]"    if @gram
-      ss << @sls.join(', ') unless @sls.empty?
-      s << ', ' << ss.join(' ') unless ss.empty?
-      s << "#{@utxt}" if @utxt
-      s
-    end
-  end
-
-  class Variant
-    include MwDict
-
-    def initialize(vr)
-      @contents = vr.elements.map do |e|
-        case e.local_name
-        when 'vl', 'pvl'   then i(e.text)
-        when 'va', 'pva'   then b(a2cd(e.text))
-        when 'pr', 'altpr' then Pronunciation.new e
-        when 'sound' # Ignored
-        else unknown_tag e
-        end
-      end
-    end
-
-    def to_s
-      @contents.join(' ')
-    end
-  end
-
-  class VerbalIllustraion
-    include MwDict
-    include WithText
-
-    def initialize(vi)
-      @contents = parse_basic_markups(vi)
-    end
-
-    def to_s
-      "\n* " + @contents.join
-    end
-  end
-
-  class DefiningText
-    include MwDict
-    include WithText
-
-    def initialize(dt)
-      @contents = parse_basic_markups(interpose(dt, 'sx')) do |x|
-        case x.local_name
-        when 'vi'
-          VerbalIllustraion.new x
-        when 'wsgram'
-          "\n  [#{x.text}]"
-        when 'un'
-          Note.new x, EM_DASH
-        when 'dx'
-          DirectionalCrossRef.new x
-        when 'sx'
-          x.map do |c|
-            case c
-            when REXML::Text then c.value.upcase
-            else                  c.text
-            end
-          end.join
-        when 'snote'
-          Note.new x, "\u25CA"
-        when 'ca'
-          CalledAlso.new x
-        when 'synref'
-          "\n#{b('Synonyms')} see: #{x.text.upcase}"
-        else
-          unknown_tag x
-        end
-      end
-    end
-
-    class Note
-      include MwDict
-      include WithText
-
-      def initialize(un, p)
-        @prefix = p
-        @contents = parse_basic_markups(un) do |e|
-          case e.local_name
-          when 'vi'
-            VerbalIllustraion.new e
-          else
-            unknown_tag e
-          end
-        end
-      end
-
-      def to_s
-        "\n#{@prefix} " + @contents.join
-      end
-    end
-
-    class CalledAlso
-      include MwDict
-      include WithText
-
-      def initialize(ca)
-        @contents = parse_basic_markups(interpose(ca, 'cat')) do |e|
-          case e.local_name
-          when 'cat' then i(e.text)
-          else unknown_tag e
-          end
-        end
-      end
-
-      def to_s
-        "\n#{EM_DASH} " + @contents.join
-      end
-    end
-
-    def to_s
-      @contents.join.gsub(/^:|\s:/, ': ')
-    end
-  end
-
-  class DirectionalCrossRef
-    include MwDict
-    include WithText
-
-    def initialize(dx)
-      @contents = parse(interpose(dx, 'dxt')) do |e|
-        case e.local_name
-        when 'dxt'
-          e.map do |c|
-            case c
-            when REXML::Text then c.value.upcase
-            else                  c.text
-            end
-          end.join
-        when 'tag'
-          i(e.text)
-        else
-          unknown_tag e
-        end
-      end
-    end
-
-    def to_s
-      "\n#{EM_DASH} " + @contents.join
-    end
-  end
-
-  class Synonyms
-    include MwDict
-    include WithText
-
-    def initialize(syns)
-      @contents = parse_basic_markups(syns) do |e|
-        case e.local_name
-        when 'vi' then VerbalIllustraion.new(e)
-        else unknown_tag e
-        end
-      end
-    end
-
-    def to_s
-      @contents.join
     end
   end
 end
 
+def parse_argv!
+  options = { ref: :learners }
+
+  parser = OptionParser.new do |parser|
+    parser.banner << ' word'
+    parser.separator "\nOptions:"
+
+    parser.on_tail '-h', '--help', 'Show this message and exit' do
+      puts parser
+      exit
+    end
+
+    parser.on '-b', '--browser', 'Search the word in the default browser' do
+      options[:browser] = true
+    end
+
+    parser.on '--no-cache', 'Do not use cache' do
+      options[:no_cache] = true
+    end
+
+    parser.on '--no-color', 'Do not output ANSI color escape code' do
+      options[:color] = false
+    end
+
+    parser.on '--non-strict', 'Do not raise error in many cases' do
+      options[:strict] = false
+    end
+
+    parser.on('-r', '--reference REFERENCE',
+              'Reference to use, default to learners') do |ref|
+      options[:ref] = ref.downcase.to_sym
+    end
+  end
+
+  parser.parse!
+
+  if ARGV.empty?
+    puts parser.banner
+    raise ArgumentError, 'no word specified'
+  end
+  options[:word] = ARGV.shift.strip.downcase
+
+  options
+end
+
 if __FILE__ == $PROGRAM_NAME
-  args   = Arguments.new
-  search = Search.new(args.word, args.ref || :learners, args.options)
-  if args.browser
-    search.browse
+  options = parse_argv!
+  mwdict = MwDict.new(options[:ref], options[:word], options)
+  if options[:browser]
+    mwdict.browse
   else
-    puts MwDict::EntryList.new(REXML::Document.new(search.xml).root)
+    puts mwdict.entry_list
   end
 end
