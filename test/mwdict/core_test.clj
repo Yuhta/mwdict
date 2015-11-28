@@ -9,7 +9,7 @@
          (slurp (resource (str "console-output/" w)))) w))
 
 (def ^:const +cached-words+
-  '("aback" "apple" "head" "foo" "deal" "complement" "one" "two"))
+  '("aback" "apple" "head" "foo" "deal" "complement" "one" "two" "main"))
 
 (deftest test-cached-search
   (binding [*cache-home* "dev-resources/cache"]
