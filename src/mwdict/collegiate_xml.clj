@@ -1,7 +1,7 @@
 (ns mwdict.collegiate-xml
   (:require [clojure.xml :as xml])
   (:use mwdict.text
-        [clojure.string :only [escape split]]
+        [clojure.string :only [escape split triml]]
         [clojure.set :only [union]]))
 
 (defmulti ^:private ->text #(:tag %))
@@ -124,7 +124,8 @@
     (str (superscript p) \u2044 (subscript q))))
 
 (defmethod ->text :dt [node]
-  (->Join nil (for [x (:content node)]
+  (->Join nil (for [x (update (:content node) 0
+                              #(if (string? %) (triml %) %))]
                 (if (string? x)
                   (->Join (->Join nil (list (->Boldface ":") " "))
                           (split x #": ?" -1))
