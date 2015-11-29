@@ -8,4 +8,5 @@
   :plugins [[lein-bin "0.3.5"]]
   :main ^:skip-aot mwdict.core
   :target-path "target/%s"
-  :profiles {:uberjar {:aot :all}})
+  :profiles {:uberjar {:aot :all}}
+  :bin {:name "mwdict"})

@@ -37,10 +37,10 @@
   (let [path (local-path reference fmt word)]
     (if (.exists path)
       (parse reference fmt path)
-      (let [bs (->bytes (url reference fmt word))]
-        (when-let [parsed (parse reference fmt (input-stream bs))]
-          (copy bs path)
-          parsed)))))
+      (let [bs (->bytes (url reference fmt word))
+            parsed (parse reference fmt (input-stream bs))]
+        (when (entry-found? parsed) (copy bs path))
+        parsed))))
 
 (defn -main [word]
   (println (render (search :collegiate :xml (lower-case (trim word))))))

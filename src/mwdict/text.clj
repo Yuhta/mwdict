@@ -32,6 +32,9 @@
   "Parse a source (File or InputStream) into Text"
   (fn [reference fmt _] [reference fmt]))
 
+(defn entry-found? [t] (:entry-found t))
+(defn entry-found [t] (assoc t :entry-found true))
+
 (defn- separator [x y]
   (let [suf (:followed-by x)
         pre (:preceded-by y)]

@@ -12,9 +12,15 @@
     (->Join sep (map ->text xs))))
 
 (defmethod parse [:collegiate :xml] [_ _ src]
-  (let [entries (:content (xml/parse src))]
-    (when-not (empty? entries)
-      (coll->text entries "\n\f\n"))))
+  (let [content (group-by :tag (:content (xml/parse src)))]
+    (assert (not (next (keys content))))
+    (case (first (keys content))
+      :entry (entry-found (coll->text (:entry content) "\n\f\n"))
+      :suggestion (->> (coll->text (:suggestion content) "\n")
+                       (list (str "The word you've entered isn't in the dictionary. "
+                                  "Choose a spelling suggestion below or try again."))
+                       (->Join "\n\n"))
+      nil "The word you've entered was not found. Please try your search again.")))
 
 (defn- content->text [node & opts]
   (apply coll->text (:content node) opts))
@@ -42,7 +48,7 @@
   (assert (string? node))
   node)
 
-(doseq [tag '(:fw :sxn :ctn :dxn :snp :d_link :pt)]
+(doseq [tag '(:fw :sxn :ctn :dxn :snp :d_link :pt :suggestion)]
   (defmethod ->text tag [node]
     (content->text node)))
 

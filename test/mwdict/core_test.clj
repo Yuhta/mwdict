@@ -2,7 +2,7 @@
   (:use clojure.test
         mwdict.core
         [clojure.java.io :only [resource]]
-        [mwdict.text :only [render]]))
+        [mwdict.text :only [render entry-found?]]))
 
 (defn- validate-word [w]
   (is (= (render (search :collegiate :xml w))
@@ -20,7 +20,16 @@
 (deftest test-uncached-search
   (validate-word "asylum"))
 
-(deftest test-failed-search
-  (let [w "non-existing-word-foo-bar-42"]
-    (is (nil? (search :collegiate :xml w)))
+(deftest test-failed-search-no-suggestions
+  (let [w "non-existing-word-foo-bar-42"
+        t (search :collegiate :xml w)]
+    (is (not (entry-found? t)))
+    (is (= t "The word you've entered was not found. Please try your search again."))
+    (is (not (.exists (local-path :collegiate :xml w))))))
+
+(deftest test-failed-search-with-suggestions
+  (let [w "ayslum"
+        t (search :collegiate :xml w)]
+    (is (not (entry-found? t)))
+    (is (.contains (render t) "asylum"))
     (is (not (.exists (local-path :collegiate :xml w))))))
