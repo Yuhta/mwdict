@@ -62,7 +62,7 @@
 (defmethod ->text :it [node]
   (->Italic (content->text node)))
 
-(doseq [tag '(:fl :lb :vt :sl :ssl :il :vl :cl)]
+(doseq [tag '(:fl :lb :vt :sl :ssl :il :vl :cl :spl)]
   (defmethod ->text tag [node]
     (followed-by-space (->Italic (content->text node)))))
 
