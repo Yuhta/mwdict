@@ -1,6 +1,6 @@
 # MWDict
 
-[![Build Status](https://travis-ci.org/Yuhta/mwdict.svg)](https://travis-ci.org/Yuhta/mwdict)
+[![Build Status](https://travis-ci.org/Yuhta/mwdict.svg?branch=master)](https://travis-ci.org/Yuhta/mwdict)
 
 Command line interface to
 [Merriam-Webster dictionary](http://www.merriam-webster.com/).
