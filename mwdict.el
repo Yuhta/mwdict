@@ -17,7 +17,11 @@ insertion."
 
 (defun mwdict (word)
   (interactive (list (read-string "Word to search: "
-                                  (thing-at-point 'word)
+                                  (let ((initial (thing-at-point 'word)))
+                                    (when (and initial
+                                               (string-match "[[:alpha:]]"
+                                                             initial))
+                                      initial))
                                   'mwdict-history)))
   (pop-to-buffer (get-buffer-create +mwdict-buffer+))
   (font-lock-mode 1)
