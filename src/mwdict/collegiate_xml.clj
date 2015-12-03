@@ -6,10 +6,12 @@
 
 (defmulti ^:private ->text #(:tag %))
 
-(defn- coll->text [xs & [sep]]
-  (if (and (vector? xs) (= (count xs) 1))
-    (->text (first xs))
-    (->Join sep (map ->text xs))))
+(defn- coll->text
+  ([xs] (coll->text xs nil))
+  ([xs sep]
+   (if (and (vector? xs) (= (count xs) 1))
+     (->text (first xs))
+     (->Join sep (map ->text xs)))))
 
 (defmethod parse [:collegiate :xml] [_ _ src]
   (let [content (group-by :tag (:content (xml/parse src)))]
@@ -62,7 +64,7 @@
 (defmethod ->text :it [node]
   (->Italic (content->text node)))
 
-(doseq [tag '(:fl :lb :vt :sl :ssl :il :vl :cl :spl)]
+(doseq [tag '(:fl :lb :vt :sl :ssl :il :vl :cl :spl :cat)]
   (defmethod ->text tag [node]
     (followed-by-space (->Italic (content->text node)))))
 
@@ -78,7 +80,7 @@
           ->CommaRule
           followed-by-space))))
 
-(doseq [tag '(:dx :un :aq)]
+(doseq [tag '(:dx :un :aq :ca)]
   (defmethod ->text tag [node]
     (preceded-by-space (->EmDash (content->text node)))))
 
