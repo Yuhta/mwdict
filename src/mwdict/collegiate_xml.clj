@@ -118,8 +118,9 @@
   (defmethod ->text tag [node]
     (headword node)))
 
-(defmethod ->text :pr [node]
-  (followed-by-space (->Join nil (list "\\" (content->text node) "\\"))))
+(doseq [tag '(:pr :sp)]
+  (defmethod ->text tag [node]
+    (followed-by-space (->Join nil (list "\\" (content->text node) "\\")))))
 
 (defmethod ->text :vi [node]
   (preceded-by-space (->Join nil (list "<" (content->text node) ">"))))
@@ -151,8 +152,8 @@
           (collect [sections node]
             (case (:tag node)
               (:vt :sn :ss :us) (add-new-sense sections (->text node))
-              (:sl :ssl :dt :sd :sin :svr) (push-to-sense sections
-                                                          (->text node))
+              (:sl :ssl :dt :sd :sin :svr :sp) (push-to-sense sections
+                                                              (->text node))
               :date sections))]
     (->Join "\n\n" (reduce collect [] (:content node)))))
 

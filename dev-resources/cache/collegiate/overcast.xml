@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<entry_list version="1.0">
+	<entry id="overcast[1]"><ew>overcast</ew><subj>HA-2</subj><hw hindex="1">over*cast</hw><sound><wav>overca06.wav</wav><wpr>+O-vur-!kast</wpr><wav>overca07.wav</wav><wpr>!O-vur-+kast</wpr></sound><fl>verb</fl><in><if>over*cast</if></in><in><if>over*cast*ing</if></in><def><vt>transitive verb</vt><date>14th century</date> <sn>1</sn> <sp>ˌō-vər-ˈkast, ˈō-vər-ˌ</sp> <dt>:<sx>darken</sx> <sx>overshadow</sx></dt> <sn>2</sn> <sp>ˈō-vər-ˌ</sp> <dt>:to sew (raw edges of a seam) with long slanting widely spaced stitches to prevent raveling</dt></def></entry>
+	<entry id="overcast[2]"><ew>overcast</ew><subj>AT</subj><hw hindex="2">over*cast</hw><sound><wav>overca07.wav</wav><wpr>!O-vur-+kast</wpr></sound><pr>ˈō-vər-ˌkast, ˌō-vər-ˈ</pr><fl>adjective</fl><def><date>1536</date><dt>:clouded over <vi>an <it>overcast</it> day</vi></dt></def></entry>
+	<entry id="overcast[3]"><ew>overcast</ew><subj>AT</subj><hw hindex="3">over*cast</hw><sound><wav>overca07.wav</wav><wpr>!O-vur-+kast</wpr></sound><pr>ˈō-vər-ˌkast</pr><fl>noun</fl><def><date>1637</date><dt>:<sx>covering</sx></dt> <sd>especially</sd> <dt>:a covering of clouds over the sky</dt></def></entry>
+	<entry id="overcast stitch"><ew>overcast stitch</ew><subj>HA</subj><hw>overcast stitch</hw><fl>noun</fl><def><date>1852</date><dt>:a small close embroidery stitch sometimes done over a foundation thread and used to form outlines</dt></def><art><bmp>overcast.bmp</bmp><cap>overcast stitch</cap></art></entry>
+</entry_list>
