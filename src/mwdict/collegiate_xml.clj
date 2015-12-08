@@ -68,6 +68,9 @@
   (defmethod ->text tag [node]
     (followed-by-space (->Italic (content->text node)))))
 
+(defmethod ->text :sc [node]
+  (assoc (->SmallCaps (content->text node)) :followed-by ""))
+
 (defmethod ->text :pl [node]
   (followed-by-space (->Italic (->Boldface (content->text node)))))
 
