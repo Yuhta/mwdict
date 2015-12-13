@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+"use strict";
 
 var fs          = require('fs'),
     nreplClient = require('nrepl-client'),
@@ -16,13 +17,16 @@ var nreplPortFile = path.join(os.homedir(), '.clj-center-nrepl-port');
 var port = fs.readFileSync(nreplPortFile, 'utf8');
 var conn = nreplClient.connect({port: port});
 Q.ninvoke(conn, 'once', 'connect').then(function () {
-    return Q.ninvoke(conn, 'eval', "(require 'mwdict.core)");
-}).then(function () {
-    return Q.ninvoke(conn, 'eval', util.format('(mwdict.core/-main %s)',
-                                               JSON.stringify(word)));
+    var code = util.format('(-main %s)', JSON.stringify(word));
+    return Q.ninvoke(conn, 'eval', code, 'mwdict.core');
 }).then(function (results) {
     results.forEach(function (result) {
         if (result.out) process.stdout.write(result.out);
+        if (result.err) {
+            process.stderr.write(result.err);
+            process.exitCode = 1;
+        }
     });
+}).fin(function () {
     conn.end();
 }).done();
