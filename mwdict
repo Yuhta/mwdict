@@ -1,0 +1,28 @@
+#!/usr/bin/env node
+
+var fs          = require('fs'),
+    nreplClient = require('nrepl-client'),
+    os          = require('os'),
+    path        = require('path'),
+    Q           = require('q'),
+    util        = require('util');
+
+if (process.argv.length != 3) {
+    console.error("Usage: %s WORD-TO-SEARCH", process.argv[1]);
+    process.exit(1);
+}
+var word = process.argv[2];
+var nreplPortFile = path.join(os.homedir(), '.clj-center-nrepl-port');
+var port = fs.readFileSync(nreplPortFile, 'utf8');
+var conn = nreplClient.connect({port: port});
+Q.ninvoke(conn, 'once', 'connect').then(function () {
+    return Q.ninvoke(conn, 'eval', "(require 'mwdict.core)");
+}).then(function () {
+    return Q.ninvoke(conn, 'eval', util.format('(mwdict.core/-main %s)',
+                                               JSON.stringify(word)));
+}).then(function (results) {
+    results.forEach(function (result) {
+        if (result.out) process.stdout.write(result.out);
+    });
+    conn.end();
+}).done();
