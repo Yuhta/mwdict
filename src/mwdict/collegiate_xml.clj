@@ -74,6 +74,9 @@
 (defmethod ->text :pl [node]
   (followed-by-space (->Italic (->Boldface (content->text node)))))
 
+(defmethod ->text :inf [node]
+  (subscript (apply str (:content node))))
+
 (doseq [[target target-number] [[:sx :sxn] [:ct :ctn] [:dxt :dxn]]]
   (defmethod ->text target [node]
     (let [[ts tns] (map coll->text
