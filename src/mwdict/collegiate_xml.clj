@@ -117,7 +117,7 @@
 (defmethod ->text :dro [node]
   (content->text node "\n"))
 
-(doseq [tag '(:hw :if)]
+(doseq [tag '(:hw :if :item)]
   (defmethod ->text tag [node]
     (headword node)))
 
@@ -159,6 +159,9 @@
                                                               (->text node))
               :date sections))]
     (->Join "\n\n" (reduce collect [] (:content node)))))
+
+(defmethod ->text :list [node]
+  (content->text node "\n"))
 
 (def ^:const +general-body-tags+ #{:def :dro :uro :cx})
 (def ^:const +paragraph-tags+ #{:pl :pt})
