@@ -8,7 +8,10 @@
   (:gen-class))
 
 (defn api-key [reference]
-  (System/getenv (str "MWDICT_API_KEY_" (upper-case (name reference)))))
+  (let [env (str "MWDICT_API_KEY_" (upper-case (name reference)))
+        key (System/getenv env)]
+    (assert key (str "cannot find API key (read from environment variable " env ")"))
+    key))
 
 (defn url [reference fmt word]
   (format "http://www.dictionaryapi.com/api/v1/references/%s/%s/%s?key=%s"
