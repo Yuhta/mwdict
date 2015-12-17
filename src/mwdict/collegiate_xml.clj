@@ -50,9 +50,12 @@
   (assert (string? node))
   node)
 
-(doseq [tag '(:fw :sxn :ctn :dxn :snp :d_link :pt :suggestion)]
+(doseq [tag '(:fw :sxn :ctn :dxn :snp :pt :suggestion)]
   (defmethod ->text tag [node]
     (content->text node)))
+
+(defmethod ->text :d_link [node]
+  (followed-by-space (->Wrapped (content->text node))))
 
 (defmethod ->text :g [node]
   (followed-by-space (->Join nil (list (content->text node)))))

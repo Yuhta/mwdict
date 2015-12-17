@@ -77,6 +77,9 @@
                #(update-string % f#)))
      ~@body))
 
+(def-singleton-text Wrapped [text]
+  (render-to-ansi [_ buf] (render-to-ansi text buf)))
+
 (def-singleton-text Boldface [text]
   (render-to-ansi [_ buf]
     (bold buf)
