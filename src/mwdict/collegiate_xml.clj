@@ -57,6 +57,9 @@
 (defmethod ->text :d_link [node]
   (followed-by-space (->Wrapped (content->text node))))
 
+(defmethod ->text :dx_def [node]
+  (preceded-by-space (->Wrapped (content->text node))))
+
 (defmethod ->text :g [node]
   (followed-by-space (->Join nil (list (content->text node)))))
 
@@ -103,6 +106,10 @@
   (->Join " " (list (->Boldface (->Italic "syn")) "see"
                     (->SmallCaps (content->text node)))))
 
+(defmethod ->text :sa [node]
+  (->Join " " (list (->Boldface (->Italic "syn")) "see in addition"
+                    (->SmallCaps (content->text node)))))
+
 (defmethod ->text :us [node]
   (->Join " " (list (->Boldface (->Italic "usage")) "see"
                     (->SmallCaps (content->text node)))))
@@ -134,6 +141,9 @@
 (defmethod ->text :vi [node]
   (preceded-by-space (->Join nil (list "<" (content->text node) ">"))))
 
+(defmethod ->text :set [node]
+  (->Join nil (list (->Boldface "[") (content->text node) (->Boldface "]"))))
+
 (defmethod ->text :sd [node]
   (followed-by-space (->Join " " (list ";" (->Italic (content->text node))))))
 
@@ -161,8 +171,8 @@
           (collect [sections node]
             (case (:tag node)
               (:vt :sn :ss :us) (add-new-sense sections (->text node))
-              (:sl :ssl :dt :sd :sin :svr :sp) (push-to-sense sections
-                                                              (->text node))
+              (:sl :ssl :dt :sd :sin :svr :sp :set)
+              (push-to-sense sections (->text node))
               :date sections))]
     (->Join "\n\n" (reduce collect [] (:content node)))))
 
@@ -170,8 +180,20 @@
   (content->text node "\n"))
 
 (def ^:const +general-body-tags+ #{:def :dro :uro :cx})
-(def ^:const +paragraph-tags+ #{:pl :pt})
+(def ^:const +paragraph-tags+ #{:pl :pt :sa})
 (def ^:const +body-tags+ (union +general-body-tags+ +paragraph-tags+))
+
+(defn- partition-on [f coll]
+  (lazy-seq
+   (when-let [s (seq coll)]
+     (let [fst (first s)
+           run (cons fst (take-while (complement f) (next s)))]
+       (cons run (partition-on f (seq (drop (count run) s))))))))
+
+(defn- paragraph->text [nodes]
+  (let [[xs ys] (split-at 2 nodes)]
+    (->Join "\n" (list* (coll->text xs " ")
+                        (map ->text ys)))))
 
 (defmethod ->text :entry [node]
   (let [[head body] (->> (:content node)
@@ -188,8 +210,9 @@
                                    (coll->text nodes))))
         body-texts (mapcat (fn [nodes]
                              (condp contains? (:tag (first nodes))
-                               +paragraph-tags+ (map #(coll->text % " ")
-                                                     (partition-all 2 nodes))
+                               +paragraph-tags+
+                               (map paragraph->text
+                                    (partition-on #(= (:tag %) :pl) nodes))
                                (map ->text nodes)))
                            body)]
     (->Join "\n\n" (list* head-text body-texts))))

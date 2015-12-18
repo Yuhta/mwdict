@@ -41,8 +41,9 @@
     (cond
       suf (cond
             (comma-rule x y) ", "
-            (let [suf-str (render suf :dumb true)]
-              (.startsWith (render y :dumb true) suf-str)) nil
+            (let [suf-str (render suf :dumb true)
+                  y-str (render y :dumb true)]
+              (some #(.startsWith y-str %) (list suf-str ")"))) nil
             :else suf)
       pre (let [pre-str (render pre :dumb true)]
             (when-not (.endsWith (render x :dumb true) pre-str)
