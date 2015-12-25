@@ -70,7 +70,7 @@
 (defmethod ->text :it [node]
   (->Italic (content->text node)))
 
-(doseq [tag '(:fl :lb :vt :sl :ssl :il :vl :cl :spl :cat)]
+(doseq [tag '(:fl :lb :vt :sl :ssl :il :vl :cl :spl :cat :slb)]
   (defmethod ->text tag [node]
     (followed-by-space (->Italic (content->text node)))))
 
@@ -171,7 +171,7 @@
           (collect [sections node]
             (case (:tag node)
               (:vt :sn :ss :us) (add-new-sense sections (->text node))
-              (:sl :ssl :dt :sd :sin :svr :sp :set)
+              (:sl :ssl :dt :sd :sin :svr :sp :set :slb)
               (push-to-sense sections (->text node))
               :date sections))]
     (->Join "\n\n" (reduce collect [] (:content node)))))
