@@ -16,13 +16,16 @@ insertion."
       (goto-char (point-min)))))
 
 (defun mwdict (word)
-  (interactive (list (read-string "Word to search: "
-                                  (let ((initial (thing-at-point 'word)))
-                                    (when (and initial
-                                               (string-match "[[:alpha:]]"
-                                                             initial))
-                                      initial))
-                                  'mwdict-history)))
+  (interactive (list (let* ((default (thing-at-point 'word))
+                            (default-prompt (if default
+                                                (format " (default %s)"
+                                                        default)
+                                              "")))
+                       (read-string (format "Word to search%s: "
+                                            default-prompt)
+                                    nil
+                                    'mwdict-history
+                                    default))))
   (pop-to-buffer (get-buffer-create +mwdict-buffer+))
   (font-lock-mode 1)
   (setq buffer-read-only nil)
