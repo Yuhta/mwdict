@@ -1,36 +1,15 @@
-#!/usr/bin/env node
-"use strict";
+#!/usr/bin/env ruby
+require 'cljd/client'
+require 'json'
 
-var fs          = require('fs'),
-    nreplClient = require('nrepl-client'),
-    os          = require('os'),
-    path        = require('path'),
-    Promise     = require('bluebird'),
-    util        = require('util');
-
-// nreplClient.log.currentLogger = nreplClient.log.defaultLogger;
-
-if (process.argv.length != 3) {
-    console.error("Usage: %s WORD-TO-SEARCH", process.argv[1]);
-    process.exit(1);
-}
-var word = process.argv[2];
-var nreplPortFile = path.join(os.homedir(), '.clj-center-nrepl-port');
-var port = fs.readFileSync(nreplPortFile, 'utf8');
-var conn = Promise.promisifyAll(nreplClient.connect({port: port}));
-conn.onceAsync('connect').then(function () {
-    return conn.evalAsync("(require 'mwdict.core)");
-}).then(function () {
-    var code = util.format('(-main %s)', JSON.stringify(word));
-    return conn.evalAsync(code, 'mwdict.core');
-}).then(function (results) {
-    results.forEach(function (result) {
-        if (result.out) process.stdout.write(result.out);
-        if (result.err) {
-            process.stderr.write(result.err);
-            process.exitCode = 1;
-        }
-    });
-}).finally(function () {
-    conn.end();
-});
+if ARGV.length != 1
+  $stderr.puts "Usage: #{$0} WORD-TO-SEARCH"
+  exit 1
+end
+word = ARGV[0]
+with_cljd_client do |c|
+  c.eval("(-main #{word.to_json})", ns = 'mwdict.core')
+end.each do |r|
+  print r['out']
+  $stderr.print r['err']
+end
