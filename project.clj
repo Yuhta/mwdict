@@ -6,7 +6,7 @@
   :dependencies [[org.clojure/clojure "1.8.0"]
                  [org.fusesource.jansi/jansi "1.11"]]
   :plugins [[lein-bin "0.3.5"]]
-  :main ^:skip-aot mwdict.core
+  :main mwdict.core
   :target-path "target/%s"
   :profiles {:uberjar {:aot :all}}
   :bin {:name "mwdict"})
