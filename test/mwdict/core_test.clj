@@ -10,7 +10,8 @@
 
 (def ^:const +cached-words+
   '("aback" "apple" "head" "foo" "deal" "complement" "one" "two" "main"
-    "leg" "visual" "overcast" "stuck" "own" "42" "impasse" "plot" "exodus"))
+    "leg" "visual" "overcast" "stuck" "own" "42" "impasse" "plot" "exodus"
+    "covert"))
 
 (deftest test-cached-search
   (binding [*cache-home* "dev-resources/cache"]

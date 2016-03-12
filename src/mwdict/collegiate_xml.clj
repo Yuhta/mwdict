@@ -118,14 +118,11 @@
   (defmethod ->text tag [node]
     (content->text node " ")))
 
-(doseq [tag '(:in :vr :svr :uro)]
+(doseq [tag '(:in :sin :vr :svr :uro)]
   (defmethod ->text tag [node]
     (-> (remove (comp #{:sound} :tag) (:content node))
         (coll->text " ")
         followed-by-space)))
-
-(defmethod ->text :sin [node]
-  (followed-by-space (content->text node " ")))
 
 (defmethod ->text :dro [node]
   (content->text node "\n"))
