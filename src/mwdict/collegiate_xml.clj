@@ -63,7 +63,7 @@
 (defmethod ->text :g [node]
   (followed-by-space (->Join nil (list (content->text node)))))
 
-(doseq [tag '(:sn :va)]
+(doseq [tag '(:sn :va :rie)]
   (defmethod ->text tag [node]
     (followed-by-space (->Boldface (content->text node)))))
 
@@ -117,6 +117,9 @@
 (doseq [tag '(:cx)]
   (defmethod ->text tag [node]
     (content->text node " ")))
+
+(defmethod ->text :ri [node]
+  (coll->text (remove (comp #{:sound} :tag) (:content node))))
 
 (doseq [tag '(:in :sin :vr :svr :uro)]
   (defmethod ->text tag [node]
